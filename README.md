@@ -50,7 +50,7 @@ flowchart LR
   Index -. "every 6 h (online mode)" .-> CPSC
 ```
 
-- **MCP server** (`src/server/mcp.ts`, `src/server/http.ts`): MCP TypeScript SDK v2 over Streamable HTTP, protocol version `2025-11-25`, with stateful sessions (`Mcp-Session-Id`), SSE for server notifications, and Host/Origin validation for localhost. Any MCP client can connect to `http://127.0.0.1:8787/mcp`.
+- **MCP server** (`src/server/mcp.ts`, `src/server/http.ts`): MCP TypeScript SDK v2 over Streamable HTTP, protocol version `2025-11-25`, with stateful sessions (`Mcp-Session-Id`, at most 100, closed after 30 idle minutes unless listening on SSE), SSE for server notifications, JSON-RPC errors for malformed requests, and Host/Origin validation for localhost. Any MCP client can connect to `http://127.0.0.1:8787/mcp`.
 - **Tools** are intent-level, so a voice turn needs one call, and each returns a short `spoken` sentence (checked by tests to be speakable: no URLs, no JSON, no IDs, at most 70 words) plus `structuredContent` for the screen:
 
   | Tool | What it does |
@@ -65,7 +65,7 @@ flowchart LR
   | `update_task` | Complete, schedule ("Saturday morning"), snooze, or track a remedy request (adds a two-week follow-up) |
 
 - **Resources**: `home://household` (summary) and `home://alerts` (subscribable; the server sends `notifications/resources/updated` when a new recall reaches the home or a child's age suggests a new stage).
-- **MCP Apps** (`src/ui`): three views (recall card, safety plan, cart) bundled with esbuild into self-contained HTML, served as `ui://home-ahead/<view>-<hash>.html` resources and linked from tools with `_meta.ui.resourceUri`. The simulator hosts them in sandboxed iframes with the `@modelcontextprotocol/ext-apps` AppBridge; buttons inside a view call tools back through the host (*Place order*, *Mark done*).
+- **MCP Apps** (`src/ui`): three views (recall card, safety plan, cart) bundled with esbuild into self-contained HTML, served as `ui://home-ahead/<view>-<hash>.html` resources and linked from tools with `_meta.ui.resourceUri`. The simulator hosts them in sandboxed iframes with the `@modelcontextprotocol/ext-apps` AppBridge and enforces each view's declared `_meta.ui.csp` with a Content-Security-Policy (no network access unless a view lists a domain); buttons inside a view call tools back through the host (*Place order*, *Mark done*).
 - **Agent** (`src/agent`): with a model configured, a [Strands Agents](https://strandsagents.com/) agent talks to the MCP server through an MCP client and Claude chooses the tools. With no key, a deterministic planner handles the demo conversation through the same MCP client, so anyone can run it offline. The simulator shows which one answered.
 - **Recall data** (`src/cpsc`): a snapshot of 280 CPSC notices for nursery and furniture products since 2023 ships in `data/cpsc/snapshot.json`; online mode fetches newer notices from the CPSC Recalls REST API every 6 hours. Model numbers, product categories and brands are extracted from each notice. Matching is `confirmed` (the model number on the label is in the notice and the product type agrees), `likely` (brand and product type match and the notice lists no model numbers), or `possible` (brand and type match but the item's model number is unknown, so Home Ahead asks for it instead of raising an alert). A known model number that is not in the notice is not a match.
 - **Safety rules** (`data/rules/hazards.json`): each rule says which stages it applies to and cites a source, either a CPSC recall notice (number plus a verbatim quote from the snapshot) or a government page (URL, quote, date checked). A test checks every recall quote against the snapshot.
@@ -73,7 +73,7 @@ flowchart LR
 
 ## Run it
 
-Requirements: Node.js 22 or newer.
+Requirements: Node.js 22.9 or newer (Node 24 recommended).
 
 ```bash
 npm install
@@ -82,7 +82,25 @@ npm run demo        # demo mode: simulated clock, bundled snapshot, no network
 
 Open `http://127.0.0.1:8787/` and type (or click the mic in Chrome and say) "My sister is giving us her old high chair and crib." To watch the full scripted demo, open `http://127.0.0.1:8787/?demo=1` (add `&tts=0` to mute the browser voice).
 
-Normal mode keeps the household in `data/state/household.json`, uses the real clock, and refreshes recalls from the CPSC API:
+### Try saying
+
+Without a model key, a deterministic planner understands these (a test sends every line below, in this order, through `/api/agent`). With a model key, say anything.
+
+1. "My sister is giving us her old high chair and crib."
+2. "It says TB-HC6900."
+3. "Model CR-2208, and yes, it has bumpers."
+4. "Is our dresser recalled?"
+5. "She pulled herself up on the couch today!"
+6. "What's left on the plan?"
+7. "Order the safety supplies."
+8. "Yes, place the order."
+9. "Put anchoring the dresser on the calendar for Saturday morning."
+10. "We anchored the dresser and the TV."
+11. "We just got a bookcase for the living room."
+12. "Check for recalls."
+13. "Are we ready for the next stage?"
+
+Normal mode keeps the household in `data/state/household.json`, uses the real clock in your computer's time zone, and refreshes recalls from the CPSC API (notices fetched after the snapshot are saved in `data/state/recalls.json`, so they still resolve after a restart or while offline):
 
 ```bash
 npm start
@@ -92,10 +110,10 @@ npm start
 
 Copy `.env.example` to `.env` and set one of:
 
-- `ANTHROPIC_API_KEY`: the Strands agent uses Claude through the Anthropic API (default model `claude-opus-5-5`).
-- `AWS_REGION` plus `AWS_PROFILE` (or access keys): the Strands agent uses Claude on Amazon Bedrock. Set `HOME_AHEAD_MODEL_ID` to an inference profile your account can use.
+- `ANTHROPIC_API_KEY`: the Strands agent uses Claude through the Anthropic API (model `claude-opus-5-5` unless `HOME_AHEAD_MODEL_ID` says otherwise).
+- `AWS_REGION` plus `AWS_PROFILE` (or access keys) **and** `HOME_AHEAD_MODEL_ID`: the Strands agent uses Claude on Amazon Bedrock. There is no default Bedrock model, because model IDs and inference profiles differ by account and region; set one your account can invoke. Without it, the server says so at startup and uses the planner.
 
-Without either, the deterministic planner answers. `HOME_AHEAD_AGENT=planner` forces the planner even when a key is set.
+Without either, the deterministic planner answers. `HOME_AHEAD_AGENT=planner` forces the planner even when a key is set. If the model fails before calling any tool, the planner answers that turn; if it fails after a tool already ran, Home Ahead reports what the tool did instead of running the turn again.
 
 ### Connect another MCP client
 
@@ -116,7 +134,8 @@ npx @modelcontextprotocol/inspector   # then connect to http://127.0.0.1:8787/mc
 | `HOME_AHEAD_STATE` | `data/state/household.json` | Household file in normal mode |
 | `HOME_AHEAD_REFRESH_MINUTES` | `360` | How often online mode fetches new recalls |
 | `HOME_AHEAD_AGENT` | auto | `planner` forces the planner; `bedrock` forces Bedrock |
-| `HOME_AHEAD_MODEL_ID` | see above | Model ID for Anthropic or Bedrock |
+| `HOME_AHEAD_MODEL_ID` | see above | Model ID for Anthropic (optional) or Bedrock (required) |
+| `HOME_AHEAD_TZ` | your system zone (`UTC` in demo mode) | IANA time zone for calendar times such as "Saturday morning" |
 
 ## Tests
 
@@ -127,16 +146,18 @@ npm run test:e2e       # the simulator in a real browser (Playwright)
 npm run typecheck
 ```
 
-- `tests/unit`: the three demo acts at service level, recall matching and model-number extraction, rules and their sources, speech checks, video-safe redaction.
-- `tests/mcp/protocol.test.ts`: real HTTP against the server: `2025-11-25` negotiation, unknown versions, foreign `Origin` rejected, missing or unknown sessions, `tools/list` schemas, `tools/call` results and errors, input validation, UI resources, and a resource-update notification to an SDK v1 client.
-- `tests/mcp/agent.test.ts`: the whole demo conversation through `/api/agent`, and the Strands Agents path with a scripted model (no API key needed).
+`npm run typecheck:video` also checks the video builder after `npm install` inside `video/`.
+
+- `tests/unit`: the three demo acts at service level, recall matching and model-number extraction, rules and their sources, speech checks, video-safe redaction, live recall refresh and restart consistency (with a fake CPSC API), time zones, past-time scheduling, expired carts, and the MCP Apps CSP.
+- `tests/mcp/protocol.test.ts`: real HTTP against the server: `2025-11-25` negotiation, unknown versions, foreign `Origin` and `Host` rejected, missing or unknown sessions, malformed JSON (JSON-RPC parse error), GET SSE streams, DELETE, session cap and idle timeout, `tools/list` schemas, `tools/call` results and errors, input validation, UI resources, and a resource-update notification to an SDK v1 client.
+- `tests/mcp/agent.test.ts`: the whole demo conversation through `/api/agent`, every "Try saying" line above, off-script questions, and the Strands Agents path with scripted models (no API key needed): tool calls, the date refreshed each turn, and failures before and after a tool call.
 - `tests/e2e`: the scripted demo plays to the end in Chromium; a button inside an MCP App calls a tool through the host; the recall card renders and resizes.
 
 External APIs are never called in tests: the CPSC client is tested with a recorded response and the agent with a scripted model.
 
 ## Demo video
 
-`npm run video` records the scripted demo and builds `video/out/home-ahead-demo.mp4` (under 3 minutes), an `.srt` subtitle file and five 3:2 screenshots. It runs the demo twice: first fast, to collect every spoken line, then at real speed with Playwright recording, after generating each line with the open [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) text-to-speech model (Apache-2.0) so the screen waits exactly as long as each voice clip. ffmpeg mixes the clips at the marked times. It needs `ffmpeg` on the PATH and `npm install` inside `video/` (downloads the model on first run). The video uses no music.
+`npm run video` records the scripted demo and builds `video/out/home-ahead-demo.mp4` (under 3 minutes), an `.srt` subtitle file and five 3:2 screenshots. It runs the demo twice: first fast, to collect every spoken line, then at real speed while capturing the screen through the Chrome DevTools screencast (JPEG frames with timestamps, encoded with x264 at CRF 18 so small text stays sharp), after generating each line with the open [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) text-to-speech model (Apache-2.0) so the screen waits exactly as long as each voice clip. ffmpeg mixes the clips, plus a synthesized two-tone chime for each proactive alert, at the marked times. It needs `ffmpeg` on the PATH and `npm install` inside `video/` (downloads the model on first run). The video uses no music.
 
 ## Project layout
 
