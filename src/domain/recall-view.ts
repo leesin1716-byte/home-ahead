@@ -75,9 +75,11 @@ export function recallView(rec: RecallRecord, index: RecallIndex, opts: ViewOpti
   const words = opts.videoSafe ? index.brandWordsFor(rec) : [];
   const r = (s: string) =>
     opts.videoSafe
-      ? redactBrands(s, words)
-          .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, 'the email address in the notice')
-          .replace(/(https?:\/\/|www\.)\S+/g, 'the website in the notice')
+      ? // Emails and links first: a brand inside an address would otherwise be replaced mid-address.
+        redactBrands(
+          s.replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, 'the email address in the notice').replace(/(https?:\/\/|www\.)\S+/g, 'the website in the notice'),
+          words,
+        )
           .replace(/the company (Store|Products|Group|Direct)\b/g, 'the company')
       : s;
   const category = opts.item?.category ?? rec.categories[0];

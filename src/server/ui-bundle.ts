@@ -15,19 +15,21 @@ export interface UiView {
 
 const VIEW_CSS: Record<UiView['key'], string> = {
   'recall-card': `
-.card+.card{margin-top:14px}.hazard{font-size:var(--t2);line-height:1.3;margin:.2em 0 .5em}
+.card+.card{margin-top:14px}.hazard{font-size:26px;line-height:1.3;margin:.2em 0 .5em}ul.steps{font-size:20px}
 .note{font-size:var(--t3);border-left:6px solid var(--fix);padding:.3em .8em;margin:.6em 0;background:color-mix(in srgb,var(--fix) 10%,transparent);border-radius:0 12px 12px 0}
 .remedy{margin-top:10px;font-size:var(--t2)}.url{word-break:break-all}
 .mini{padding:16px 24px;font-size:var(--t3)}`,
   'safety-plan': `
-body{padding:28px}.head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px}
+body{padding:28px}.head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:14px}
 .score{text-align:right}.score .big{display:block;font-size:72px;font-weight:800;line-height:1}
-.rooms{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;align-items:start}
-.finding{border-top:1px solid var(--line);padding:16px 0}.finding:first-of-type{border-top:0}
-.finding .ft{font-size:var(--t2);line-height:1.2}.finding.p1 .ft::before{content:"";display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--stop);margin-right:10px;vertical-align:middle}
-.finding button{margin-top:10px;font-size:var(--t4);padding:.5em 1.1em}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:stretch}
+.card.finding,.card.side{padding:20px 24px;border-radius:24px;display:flex;flex-direction:column;gap:6px}
+.finding .ft{font-size:25px;line-height:1.2}.finding.p1 .ft::before{content:"";display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--stop);margin-right:10px;vertical-align:middle}
+.finding .act{font-size:20px;line-height:1.3}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:auto;padding-top:8px}.foot .src{margin-top:0;font-size:16px}
+.finding button{flex:none;font-size:var(--t4);padding:.45em 1em}
 .finding.is-done{opacity:.55}.finding.is-done .ft{text-decoration:line-through}
-.side h2{font-size:var(--t3)}.doneitem{color:var(--ok);margin:.25em 0}`,
+.doneitem{color:var(--ok);margin:.15em 0}`,
   cart: `
 .lines{width:100%;border-collapse:collapse;margin:20px 0;font-size:var(--t2)}
 .lines td{padding:.45em 0;border-bottom:1px solid var(--line)}.qty{width:3.2em;color:var(--muted)}.price{text-align:right;white-space:nowrap}

@@ -122,4 +122,14 @@ describe('demo scenario (service level)', () => {
     expect(card).not.toMatch(/bicystar/i);
     expect(r.data.recall?.heading).toBe('High chair recall');
   });
+
+  it('video-safe mode replaces an email that contains a brand as a whole', () => {
+    const safe = createContext({ ...config, videoSafe: true });
+    safe.clock.advanceDays(28); // 2026-09-25, after the dresser recall
+    safe.service.sweep(true);
+    const g = safe.service.getRecallGuidance({ recallNumber: '26794' });
+    const text = JSON.stringify({ ...g.data.recall, url: "" });
+    expect(text).not.toMatch(/yuyitop|aitjunz|outlook|recall\.the/i);
+    expect(text).toContain('contact the company at the email address in the notice');
+  });
 });

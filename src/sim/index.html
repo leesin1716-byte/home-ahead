@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Alexa+ 시뮬레이터 화면: Echo Show 형태의 가로 화면, 입력창, 도구 호출 인스펙터 -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Home Ahead · Simulated Alexa+</title>
+  <link rel="stylesheet" href="/sim.css">
+</head>
+<body>
+  <div id="stage">
+    <header class="topbar">
+      <div class="brand"><span class="mark" aria-hidden="true"></span><strong>Home Ahead</strong><span class="sim-label">Simulated Alexa+ experience</span></div>
+      <div class="status"><span id="mode-badge" class="pill">connecting…</span><span id="clock-badge" class="pill"></span><button id="inspector-toggle" class="pill ghost" title="Tool-call inspector (D)">Inspector · D</button></div>
+    </header>
+
+    <div class="device" id="device">
+      <div class="screen" id="screen" data-state="home">
+        <section class="home" id="home">
+          <div class="clock"><div id="time">6:30</div><div id="date" class="muted">Friday, August 28</div></div>
+          <div class="ambient" id="ambient"></div>
+        </section>
+
+        <div class="user-bubble" id="user-bubble" hidden><span class="mic-dot" aria-hidden="true"></span><span id="user-text"></span></div>
+        <div class="reply" id="reply" hidden></div>
+        <div class="app-slot" id="app-slot" hidden></div>
+        <div class="alert-card" id="alert-card" hidden></div>
+        <div class="chapter" id="chapter" hidden><span id="chapter-text"></span></div>
+        <div class="lightbar" id="lightbar" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <form class="inputbar" id="inputbar" autocomplete="off">
+      <button type="button" id="mic" class="mic" title="Speak (Chrome)" aria-label="Speak">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+      </button>
+      <input id="text" placeholder="Say something, e.g. “My sister is giving us her old high chair”" aria-label="What you say">
+      <button type="submit" class="send">Send</button>
+      <label class="tts"><input type="checkbox" id="tts" checked> Voice</label>
+    </form>
+
+    <div class="narration" id="narration" hidden></div>
+    <aside class="inspector" id="inspector" hidden>
+      <header><strong>MCP tool calls</strong><span id="proto" class="muted"></span></header>
+      <ol id="calls"></ol>
+    </aside>
+  </div>
+  <script src="/sim.js"></script>
+</body>
+</html>

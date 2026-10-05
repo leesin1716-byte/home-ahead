@@ -1,1 +1,24 @@
-{"lines":[]}
+{
+  "title": "Home Ahead demo",
+  "note": "Played by the simulator at /?demo=1 and by video/record.ts. 'speak' overrides how a line is read aloud by the TTS voice.",
+  "steps": [
+    { "id": "intro", "type": "narrate", "text": "Babyproofing is usually a one-time job. But every time a baby learns a new move, the risks in a home change. Home Ahead keeps the home one step ahead." },
+    { "id": "act1", "type": "chapter", "text": "Day 1 · Hand-me-downs" },
+    { "id": "a1", "type": "say", "text": "My sister is giving us her old high chair and crib." },
+    { "id": "a2", "type": "say", "text": "It says TB-HC6900.", "speak": "It says T B, H C, six nine zero zero." },
+    { "id": "a3", "type": "say", "text": "Model CR-2208, and yes, it has bumpers.", "speak": "Model C R, twenty-two oh eight. And yes, it has bumpers." },
+    { "id": "act2", "type": "advance", "days": 21, "text": "Three weeks later", "expectAlert": true },
+    { "id": "b1", "type": "say", "text": "She pulled herself up on the couch today!" },
+    { "id": "b2", "type": "say", "text": "Yes please." },
+    { "id": "b3", "type": "say", "text": "Yes, place the order." },
+    { "id": "b4", "type": "say", "text": "Put anchoring the dresser on the calendar for Saturday morning." },
+    { "id": "act3a", "type": "advance", "days": 1, "text": "Saturday" },
+    { "id": "c1", "type": "say", "text": "We anchored the dresser and the TV." },
+    { "id": "act3b", "type": "advance", "days": 6, "text": "The next Friday", "expectAlert": true },
+    { "id": "c2", "type": "say", "text": "What should I do?" },
+    { "id": "c3", "type": "say", "text": "I emailed them for the repair kit." },
+    { "id": "c4", "type": "say", "text": "Are we ready for the next stage?" },
+    { "id": "how", "type": "inspector", "open": true },
+    { "id": "outro", "type": "narrate", "text": "Under the hood: a self-hosted MCP server on the 2025-11-25 spec, nine intent-level tools, MCP Apps cards, and real recall notices from the U.S. Consumer Product Safety Commission. It all runs locally with npm start." }
+  ]
+}

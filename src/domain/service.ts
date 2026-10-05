@@ -232,7 +232,7 @@ export class HomeService {
         const needsSupplies = open.some((f) => f.supplies.length > 0);
         spoken =
           `${observed ? 'Big milestone! ' : ''}${child.nickname} is ${STAGE_LABELS[stage]} now, so I re-checked the home. ` +
-          `${capitalize(countPhrase(open.length, 'thing'))} need${open.length === 1 ? 's' : ''} attention: ${listPhrase(headline.map((f) => f.title.charAt(0).toLowerCase() + f.title.slice(1)))}. ` +
+          `${capitalize(countPhrase(open.length, 'thing'))} need${open.length === 1 ? 's' : ''} attention${headline.length < open.length ? ', starting with' : ':'} ${listPhrase(headline.map((f) => f.title.charAt(0).toLowerCase() + f.title.slice(1)))}. ` +
           `The room-by-room plan is on screen.${needsSupplies ? ' Want me to get the supplies?' : ''}`;
       }
       return {

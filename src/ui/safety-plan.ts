@@ -19,26 +19,24 @@ function render(d: Data, app: App) {
     <h1>${esc(d.isPreview ? `When ${nick} starts ${d.stageLabel}` : `Ready for ${d.stageLabel}`)}</h1></div>
     <div class="score"><span class="big">${esc(d.openCount)}</span><span class="muted">open</span></div>
   </header>
-  <section class="rooms">
+  <section class="tiles">
     ${rooms
-      .map(
-        (r) => `<div class="room card"><h2>${esc(r.room.replace(/^\w/, (c: string) => c.toUpperCase()))}</h2>
-      ${r.findings
-        .map(
-          (f: Data) => `<div class="finding p${f.priority}">
-          <div class="row">${f.newThisStage ? '<span class="badge fix">New</span>' : ''}<strong class="ft">${esc(f.title)}</strong></div>
-          <div class="muted">${esc(f.action)}</div>
-          <div class="src">${f.sources.map((s: Data) => esc(s.label)).join(' · ')}</div>
-          ${d.isPreview ? '' : `<button class="done" data-title="${esc(f.title)}">Mark done</button>`}
+      .flatMap((r) =>
+        r.findings.map(
+          (f: Data) => `<div class="finding card p${f.priority}">
+          <div class="kicker">${esc(r.room)}${f.newThisStage ? ' · <span class="fix">New</span>' : ''}</div>
+          <strong class="ft">${esc(f.title)}</strong>
+          <div class="muted act">${esc(f.action)}</div>
+          <div class="foot"><span class="src">${[...new Set(f.sources.map((s: Data) => String(s.label)))].map(esc).join(' · ')}</span>
+          ${d.isPreview ? '' : `<button class="done" data-title="${esc(f.title)}">Mark done</button>`}</div>
         </div>`,
-        )
-        .join('')}</div>`,
+        ),
       )
       .join('')}
-    ${!rooms.length ? `<div class="room card"><h2>All set</h2><p class="muted">Nothing open for this stage.</p></div>` : ''}
+    ${!rooms.length ? `<div class="card"><h2>All set</h2><p class="muted">Nothing open for this stage.</p></div>` : ''}
     <aside class="side card">
-      <h2>Done</h2>${(d.done ?? []).slice(-4).map((t: Data) => `<div class="doneitem">✓ ${esc(t.title)}</div>`).join('') || '<div class="muted">Nothing yet</div>'}
-      <h2 style="margin-top:20px">Calendar</h2>${(d.upcoming ?? []).slice(0, 3).map((t: Data) => `<div><strong>${esc(t.when)}</strong><br><span class="muted">${esc(t.title)}</span></div>`).join('') || '<div class="muted">Nothing scheduled</div>'}
+      <div class="kicker">Done</div>${(d.done ?? []).slice(-3).map((t: Data) => `<div class="doneitem">✓ ${esc(t.title)}</div>`).join('') || '<div class="muted">Nothing yet</div>'}
+      <div class="kicker" style="margin-top:14px">Calendar</div>${(d.upcoming ?? []).slice(0, 2).map((t: Data) => `<div><strong>${esc(t.when)}</strong><br><span class="muted">${esc(t.title)}</span></div>`).join('') || '<div class="muted">Nothing scheduled</div>'}
     </aside>
   </section>`;
   root.querySelectorAll<HTMLButtonElement>('button.done').forEach((b) =>
