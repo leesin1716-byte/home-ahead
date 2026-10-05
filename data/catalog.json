@@ -1,0 +1,10 @@
+{
+  "note": "Synthetic demo store. No brands, example prices, nothing is ever bought.",
+  "currency": "USD",
+  "products": [
+    { "sku": "anchor-kit", "name": "Furniture anti-tip strap kit (2 pack)", "price": 12.99, "perItem": true },
+    { "sku": "tv-strap", "name": "TV anti-tip strap kit", "price": 14.99, "perItem": true },
+    { "sku": "cord-cleats", "name": "Window cord wind-up cleats (4 pack)", "price": 6.99, "perItem": false },
+    { "sku": "fitted-sheet", "name": "Fitted crib sheet", "price": 14.99, "perItem": false }
+  ]
+}

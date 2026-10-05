@@ -1,0 +1,285 @@
+{
+  "note": "Rules are written in our own words. Every rule cites at least one U.S. government source. Quotes from CPSC recall notices are checked word for word against data/cpsc/snapshot.json by tests/unit/rules.test.ts; quotes from other government pages record the date they were checked.",
+  "home": [
+    {
+      "id": "anchor-furniture",
+      "title": "Anchor the {item} to the wall",
+      "categories": ["dresser", "bookcase"],
+      "when": { "anchored": "not_true" },
+      "stages": ["cruising", "walking", "climbing"],
+      "priority": 1,
+      "hazard": "A child who pulls up on furniture that isn't anchored can tip it over.",
+      "action": "Strap it to a wall stud with an anti-tip kit.",
+      "supplies": ["anchor-kit"],
+      "onComplete": { "anchored": true },
+      "sources": [
+        {
+          "kind": "gov-page",
+          "url": "https://www.anchorit.gov/",
+          "quote": "Anchoring all furniture with drawers, doors, and shelves to the wall prevents tip-over injuries and deaths",
+          "checkedOn": "2026-10-06"
+        },
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "26794",
+          "url": "https://cpsc.gov/Recalls/2026/Yuyitop-Recalls-Aitjunz-8-Drawer-Dressers-Due-to-Risk-of-Serious-Injury-or-Death-from-Tip-Over-and-Entrapment-Hazards-Violate-Mandatory-Standard-for-Clothing-Storage-Units",
+          "quote": "The recalled dressers are unstable if they are not anchored to the wall, posing tip-over and entrapment hazards that can result in risks of serious injuries or death to children."
+        }
+      ]
+    },
+    {
+      "id": "anchor-tv",
+      "title": "Strap the {item} to the wall",
+      "categories": ["tv"],
+      "when": { "anchored": "not_true" },
+      "stages": ["cruising", "walking", "climbing"],
+      "priority": 1,
+      "hazard": "A TV on a stand can come down on a child who pulls on it or the stand.",
+      "action": "Use a TV anti-tip strap on the mounting holes on the back.",
+      "supplies": ["tv-strap"],
+      "onComplete": { "anchored": true },
+      "sources": [
+        {
+          "kind": "gov-page",
+          "url": "https://www.anchorit.gov/how-to-anchor/how-to-install-a-kit/",
+          "quote": "If you're anchoring a flat-screen TV, you'll want to use the standard mounting holes on the back of the display.",
+          "checkedOn": "2026-10-06"
+        },
+        {
+          "kind": "gov-page",
+          "url": "https://www.anchorit.gov/",
+          "quote": "Anchoring all furniture with drawers, doors, and shelves to the wall prevents tip-over injuries and deaths",
+          "checkedOn": "2026-10-06"
+        }
+      ]
+    },
+    {
+      "id": "window-cords",
+      "title": "Get the {item} cords out of reach",
+      "categories": ["window_covering"],
+      "when": { "corded": "not_false" },
+      "stages": ["newborn", "rolling", "sitting", "crawling", "cruising", "walking", "climbing"],
+      "priority": 1,
+      "hazard": "Long window-covering cords can strangle a young child.",
+      "action": "Wind the cords up high on a cleat now, and plan to switch to cordless.",
+      "supplies": ["cord-cleats"],
+      "onComplete": {},
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "25479",
+          "url": "https://www.cpsc.gov/Recalls/2025/Persilux-Brand-Zebra-Blinds-Recalled-Due-to-Strangulation-and-Entanglement-Hazards-and-Risk-of-Serious-Injury-or-Death-Violates-Federal-Rule-for-Window-Coverings-Sold-on-Amazon",
+          "quote": "The recalled blinds have long operating cords that can cause death or serious injury to children, due to strangulation and entanglement hazards."
+        },
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "25147",
+          "url": "https://www.cpsc.gov/Recalls/2025/Homebox-Blackout-Roller-Window-Shades-Recalled-Due-to-Strangulation-and-Entanglement-Hazards-and-Risk-of-Serious-Injury-or-Death-Violation-of-Federal-Regulations-for-Window-Coverings-Sold-Exclusively-on-Amazon-com-by-Zhejiang-Mingjing-Textile-Co",
+          "quote": "Consumers should immediately put the window blind's cords up and away from children"
+        }
+      ]
+    },
+    {
+      "id": "bare-crib",
+      "title": "Keep the {item} bare",
+      "categories": ["crib", "bassinet", "play_yard"],
+      "when": {},
+      "stages": ["newborn", "rolling", "sitting", "crawling", "cruising"],
+      "priority": 2,
+      "hazard": "Pillows, blankets and padding in a sleep space are a suffocation risk.",
+      "action": "Only a fitted sheet in the sleep space, and baby goes down on their back.",
+      "supplies": ["fitted-sheet"],
+      "onComplete": {},
+      "sources": [
+        {
+          "kind": "gov-page",
+          "url": "https://www.cpsc.gov/SafeSleep",
+          "quote": "Do remember 'Bare is Best' - nothing but a fitted sheet in a crib, bassinet or play yard",
+          "checkedOn": "2026-10-06"
+        },
+        {
+          "kind": "gov-page",
+          "url": "https://www.cpsc.gov/SafeSleep",
+          "quote": "Do always place baby on their back",
+          "checkedOn": "2026-10-06"
+        }
+      ]
+    },
+    {
+      "id": "remove-bumpers",
+      "title": "Take the bumpers out of the {item}",
+      "categories": ["crib"],
+      "when": { "hasBumpers": "true" },
+      "stages": ["newborn", "rolling", "sitting", "crawling", "cruising", "walking", "climbing"],
+      "priority": 1,
+      "hazard": "Padded crib bumpers can block a baby's breathing.",
+      "action": "Remove them and don't put them back.",
+      "supplies": [],
+      "onComplete": { "hasBumpers": false },
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "26169",
+          "url": "https://www.cpsc.gov/Recalls/2026/The-Kalencom-Corporation-Recalls-SARO-Braided-Crib-Bumpers-Due-to-Risk-of-Serious-Injury-or-Death-from-Suffocation-Violates-Federal-Crib-Bumper-Ban",
+          "quote": "Padded crib bumpers are banned by the federal Safe Sleep for Babies Act."
+        }
+      ]
+    },
+    {
+      "id": "magnets-away",
+      "title": "Put the {item} out of reach",
+      "categories": ["magnetic_toy"],
+      "when": {},
+      "stages": ["crawling", "cruising", "walking", "climbing"],
+      "priority": 1,
+      "hazard": "Swallowed high-powered magnets can pull together inside the gut.",
+      "action": "Store magnet sets up high in a closed container.",
+      "supplies": [],
+      "onComplete": {},
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "26508",
+          "url": "https://www.cpsc.gov/Recalls/2026/MiniWarGaming-and-Primal-Horizon-Disc-Magnets-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Ingestion-Violate-Mandatory-Standard-for-Magnets-Imported-by-MiniWarGaming",
+          "quote": "When high-powered magnets are swallowed, the ingested magnets can attract each other, or other metal objects, and become lodged in the digestive system."
+        }
+      ]
+    },
+    {
+      "id": "walker-steps",
+      "title": "Block steps when the {item} is out",
+      "categories": ["walker"],
+      "when": {},
+      "stages": ["sitting", "crawling", "cruising", "walking"],
+      "priority": 2,
+      "hazard": "Walkers that don't stop at the edge of a step can go down it.",
+      "action": "Only use the walker on one level, away from any step.",
+      "supplies": [],
+      "onComplete": {},
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "26721",
+          "url": "https://cpsc.gov/Recalls/2026/Kmaier-Recalls-Infant-Walkers-Due-to-Risk-of-Serious-Injury-or-Death-from-Fall-Hazard-Violate-Mandatory-Standard-for-Infant-Walkers",
+          "quote": "fail to stop at the edge of a step, posing a deadly fall hazard"
+        }
+      ]
+    },
+    {
+      "id": "high-chair-strap",
+      "title": "Buckle the {item} strap every time",
+      "categories": ["high_chair"],
+      "when": {},
+      "stages": ["sitting", "crawling", "cruising", "walking", "climbing"],
+      "priority": 2,
+      "hazard": "Without the crotch strap, a child can slide or climb out of a high chair.",
+      "action": "Use the full restraint every meal, tray or no tray.",
+      "supplies": [],
+      "onComplete": {},
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "26290",
+          "url": "https://www.cpsc.gov/Recalls/2026/Bicystar-High-Chairs-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Fall-and-Entrapment-Hazards-Violates-Mandatory-Standard-for-High-Chairs",
+          "quote": "sold without the required attached crotch restraint, posing a deadly fall hazard for children"
+        }
+      ]
+    },
+    {
+      "id": "awake-only-cushions",
+      "title": "Use the {item} only while awake and watched",
+      "categories": ["lounger", "nursing_pillow"],
+      "when": {},
+      "stages": ["newborn", "rolling", "sitting"],
+      "priority": 2,
+      "hazard": "Soft infant cushions can block a baby's breathing.",
+      "action": "Never let the baby sleep on it; move them to the crib.",
+      "supplies": [],
+      "onComplete": {},
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "26596",
+          "url": "https://www.cpsc.gov/Recalls/2026/AMASKY-Nursing-Pillows-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-from-Suffocation-Violate-Mandatory-Standards-for-Nursing-Pillows-and-Infant-Support-Cushions-Sold-on-Amazon-by-Pretty-Life",
+          "quote": "can obstruct an infant's breathing, posing a serious risk of injury or death from suffocation"
+        },
+        {
+          "kind": "gov-page",
+          "url": "https://www.cpsc.gov/SafeSleep",
+          "quote": "Do use products intended for sleep",
+          "checkedOn": "2026-10-06"
+        }
+      ]
+    },
+    {
+      "id": "flat-sleep",
+      "title": "Move the baby to the crib if they fall asleep in the {item}",
+      "categories": ["swing", "bouncer", "inclined_sleeper"],
+      "when": {},
+      "stages": ["newborn", "rolling", "sitting", "crawling"],
+      "priority": 2,
+      "hazard": "Sleeping at an incline is linked to infant deaths.",
+      "action": "Use it awake only; sleep goes in a flat crib or bassinet.",
+      "supplies": [],
+      "onComplete": {},
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "24719",
+          "url": "https://www.cpsc.gov/Recalls/2024/Peg-Perego-Recalls-Inclined-Sleeper-Bassinets-for-YPSI-and-Z4-Strollers-Due-to-Risk-of-Suffocation-and-Fall-Hazard-Violation-of-Federal-Safety-Standards-Recall-Alert",
+          "quote": "Infant fatalities have occurred in inclined sleeper products after the infants rolled from their back to their stomach or side while unrestrained"
+        }
+      ]
+    },
+    {
+      "id": "bath-seat-hands-on",
+      "title": "Keep a hand on the baby in the {item}",
+      "categories": ["bath_seat"],
+      "when": {},
+      "stages": ["sitting", "crawling", "cruising", "walking"],
+      "priority": 2,
+      "hazard": "Bath seats have tipped over in the water.",
+      "action": "Stay within arm's reach for the whole bath.",
+      "supplies": [],
+      "onComplete": {},
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "26288",
+          "url": "https://www.cpsc.gov/Recalls/2026/Trankerloop-Baby-Bath-Seats-Recalled-Due-to-Risk-of-Serious-Injury-or-Death-to-Children-from-Drowning-Violates-Mandatory-Standard-for-Infant-Bath-Seats",
+          "quote": "they are unstable and can tip over while in use, posing a risk of serious injury or death due to drowning"
+        }
+      ]
+    }
+  ],
+  "secondhand": [
+    {
+      "id": "banned-bumpers",
+      "categories": ["crib_bumper"],
+      "verdict": "do_not_use",
+      "reason": "Padded crib bumpers are banned under federal law.",
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "26169",
+          "url": "https://www.cpsc.gov/Recalls/2026/The-Kalencom-Corporation-Recalls-SARO-Braided-Crib-Bumpers-Due-to-Risk-of-Serious-Injury-or-Death-from-Suffocation-Violates-Federal-Crib-Bumper-Ban",
+          "quote": "Padded crib bumpers are banned by the federal Safe Sleep for Babies Act."
+        }
+      ]
+    },
+    {
+      "id": "banned-inclined",
+      "categories": ["inclined_sleeper"],
+      "verdict": "do_not_use",
+      "reason": "Sleep products with an incline over ten degrees are banned.",
+      "sources": [
+        {
+          "kind": "cpsc-recall",
+          "recallNumber": "24719",
+          "url": "https://www.cpsc.gov/Recalls/2024/Peg-Perego-Recalls-Inclined-Sleeper-Bassinets-for-YPSI-and-Z4-Strollers-Due-to-Risk-of-Suffocation-and-Fall-Hazard-Violation-of-Federal-Safety-Standards-Recall-Alert",
+          "quote": "The recalled bassinets violate the Safe Sleep for Babies Act because they were marketed for infant sleep and have an incline angle greater than 10 degrees."
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "note": "Fictional demo household. 'Ava' is a made-up nickname. The dresser model is from real CPSC recall 26794 (published 2026-09-24); the demo clock starts before that date so the recall arrives in act 3.",
+  "clockStart": "2026-08-28T18:30:00Z",
+  "household": {
+    "id": "home",
+    "rooms": ["nursery", "living room"],
+    "children": [
+      { "id": "ch_demo", "nickname": "Ava", "birthMonth": "2026-01", "lastAuditedStage": "sitting" }
+    ],
+    "items": [
+      { "id": "it_dresser", "category": "dresser", "name": "dresser", "model": "LDQMFJ8D-WH", "room": "nursery", "source": "owned", "anchored": false, "addedAt": "2026-06-02T17:00:00Z", "status": "active" },
+      { "id": "it_tv", "category": "tv", "name": "TV", "room": "living room", "source": "owned", "anchored": false, "addedAt": "2026-06-02T17:00:00Z", "status": "active" },
+      { "id": "it_blinds", "category": "window_covering", "name": "nursery blinds", "room": "nursery", "source": "owned", "corded": true, "addedAt": "2026-06-02T17:00:00Z", "status": "active" }
+    ],
+    "recallMatches": [],
+    "tasks": [],
+    "orders": [],
+    "alerts": [],
+    "updatedAt": "2026-06-02T17:00:00Z"
+  }
+}
