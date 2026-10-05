@@ -6,6 +6,8 @@ export class RecallIndex {
   private byNumber = new Map<string, RecallRecord>();
   private vocab: Set<string>;
   private brandCache = new Map<string, string[]>();
+  /** Records added after the snapshot (live refreshes), kept so they can be saved and survive a restart. */
+  private live = new Map<string, StoredRecall>();
   lastRefreshAt?: string;
 
   constructor(stored: StoredRecall[]) {
@@ -46,8 +48,14 @@ export class RecallIndex {
       if (!this.byNumber.has(s.recallNumber)) added.push(s.recallNumber);
       this.byNumber.set(s.recallNumber, deriveRecord(s));
       this.brandCache.delete(s.recallNumber);
+      this.live.set(s.recallNumber, s);
     }
     return added;
+  }
+
+  /** Everything merged since the snapshot was loaded. */
+  liveRecords(): StoredRecall[] {
+    return [...this.live.values()];
   }
 
   brandWordsFor(rec: RecallRecord): string[] {

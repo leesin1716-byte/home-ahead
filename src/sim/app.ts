@@ -1,6 +1,7 @@
 // 시뮬레이터 브라우저 코드: MCP 클라이언트(구독 알림), MCP Apps 호스트(AppBridge), 음성 입출력, 인스펙터, 데모 재생
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { AppBridge, PostMessageTransport } from '@modelcontextprotocol/ext-apps/app-bridge';
+import { withCsp } from './csp.js';
 
 interface UiRef {
   tool: string;
@@ -110,9 +111,11 @@ async function readJson(uri: string): Promise<any> {
 async function refreshAmbient() {
   const h = await readJson('home://household');
   const now = new Date(h.now);
-  $('time').textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }).replace(/\s?[AP]M/, '');
-  $('date').textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
-  $('clock-badge').textContent = h.simulatedClock ? `Demo clock · ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}` : 'Live clock';
+  // The household's time zone, so the screen and "Saturday morning" agree.
+  const timeZone = h.timeZone ?? 'UTC';
+  $('time').textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone }).replace(/\s?[AP]M/, '');
+  $('date').textContent = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone });
+  $('clock-badge').textContent = h.simulatedClock ? `Demo clock · ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone })}` : `Live clock · ${timeZone}`;
   const child = h.children[0];
   const next = h.openTasks.find((t: any) => t.when);
   const recalls = h.openRecalls.filter((r: any) => r.remedyStatus === 'open');
@@ -177,7 +180,8 @@ async function showApp(ui: UiRef) {
   const fullscreen = ui.tool === 'get_safety_plan' || ui.tool === 'set_child_stage';
   screen.dataset.ui = fullscreen ? 'fullscreen' : 'inline';
   const res = await client.readResource({ uri: ui.resourceUri });
-  const html = (res.contents[0] as { text: string }).text;
+  const content = res.contents[0] as { text: string; _meta?: { ui?: { csp?: { connectDomains?: string[]; resourceDomains?: string[] } } } };
+  const html = withCsp(content.text, content._meta?.ui?.csp);
   const slot = $('app-slot');
   const iframe = document.createElement('iframe');
   iframe.setAttribute('sandbox', 'allow-scripts');
@@ -237,9 +241,13 @@ async function showNewAlerts() {
     $('user-bubble').hidden = true;
     $('reply').hidden = true;
     const card = $('alert-card');
-    card.innerHTML = `<div class="k">${alert.kind === 'recall' ? 'New recall' : 'Heads up'}</div><div class="t">${esc(alert.title)}</div><div class="s">${esc(alert.spoken)}</div>`;
+    const source = alert.recallNumber ? `<div class="src">U.S. CPSC recall ${esc(alert.recallNumber)}</div>` : '';
+    card.innerHTML = `<div class="k">${alert.kind === 'recall' ? 'New recall' : 'Heads up'}</div><div class="t">${esc(alert.title)}</div><div class="s">${esc(alert.spoken)}</div>${source}`;
     card.hidden = false;
+    // The recording cannot capture WebAudio, so the video builder adds the same chime at this mark.
+    mark('chime');
     chime();
+    await sleep(700);
     const alertId = `alert-${alertsSpoken}`;
     mark('alert', alertId, alert.spoken);
     await speakOrWait(alert.spoken, `${alertId}.assistant`);

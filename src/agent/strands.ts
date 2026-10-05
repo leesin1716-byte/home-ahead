@@ -13,7 +13,16 @@ You help a family keep their home safe as their baby grows, using the Home Ahead
 - Never read out URLs, IDs, JSON or tool names.
 - Never call confirm_supply_order unless the user has just clearly said yes to the cart you prepared.
 - When a tool asks a question (for example a model number), ask it and wait for the answer.
-- Today's date is {today}.`;
+- It is {now} at home now. Times you pass to update_task are local wall-clock times; never schedule anything in the past.`;
+
+/** "Friday, September 18, 2026, 6:30 PM" from a wall-clock Date (UTC fields hold local time). */
+export function describeNow(localNow: Date): string {
+  return localNow.toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+}
+
+export function systemPromptFor(localNow: Date): string {
+  return SYSTEM_PROMPT.replace('{now}', describeNow(localNow));
+}
 
 /**
  * Wraps the v1 client transport and records every tools/call round trip. Strands keeps only the
@@ -83,6 +92,7 @@ export class RecordingTransport implements Transport {
 export interface StrandsOptions {
   mcpUrl: string;
   model: Model | string;
+  /** The household's wall-clock time (UTC fields hold local time); read on every turn so the date never goes stale. */
   now: () => Date;
   uiFor: (tool: string) => string | undefined;
 }
@@ -108,7 +118,7 @@ export class StrandsAgentRunner {
       a = new Agent({
         model: this.opts.model,
         tools: [this.mcp],
-        systemPrompt: SYSTEM_PROMPT.replace('{today}', this.opts.now().toDateString()),
+        systemPrompt: systemPromptFor(this.opts.now()),
         printer: false,
       });
       this.agents.set(id, a);
@@ -122,9 +132,28 @@ export class StrandsAgentRunner {
 
   async handle(text: string, conversationId = 'default'): Promise<AgentReply> {
     this.transport.drain();
-    const result = await this.agent(conversationId).invoke(text);
-    const calls = this.transport.drain();
-    const spoken = result.toString().trim() || calls[calls.length - 1]?.result.spoken || "Sorry, I didn't get that.";
+    const agent = this.agent(conversationId);
+    // A conversation can span demo days (or midnight): refresh the clock line on every turn.
+    agent.systemPrompt = systemPromptFor(this.opts.now());
+    let answer = '';
+    try {
+      answer = (await agent.invoke(text)).toString().trim();
+    } catch (err) {
+      const calls = this.transport.drain();
+      // Nothing ran yet: let the caller fall back to the planner.
+      if (!calls.length) throw err;
+      // Tools already ran (an item added, an order placed). Answering again with the planner would
+      // repeat those side effects, so report what was done. The conversation history may be half
+      // written, so start it fresh next turn.
+      console.warn('[agent] Strands failed after tool calls; answering from the tool results:', (err as Error).message);
+      this.agents.delete(conversationId);
+      return this.reply(calls, '');
+    }
+    return this.reply(this.transport.drain(), answer);
+  }
+
+  private reply(calls: ToolCallRecord[], answer: string): AgentReply {
+    const spoken = answer || calls[calls.length - 1]?.result.spoken || "Sorry, I didn't get that.";
     const withUi = calls.filter((c) => this.opts.uiFor(c.tool));
     const decisive = withUi.filter((c) => !c.result.isError && c.result.structuredContent.verdict !== 'need_info');
     const chosen = decisive[decisive.length - 1] ?? withUi[withUi.length - 1];
@@ -149,7 +178,11 @@ export async function modelFromEnv(env: NodeJS.ProcessEnv = process.env): Promis
   }
   if (env.HOME_AHEAD_AGENT === 'bedrock' || (env.AWS_REGION && (env.AWS_PROFILE || env.AWS_ACCESS_KEY_ID))) {
     const { BedrockModel } = await import('@strands-agents/sdk/models/bedrock');
-    const modelId = env.HOME_AHEAD_MODEL_ID ?? 'global.anthropic.claude-opus-5-5';
+    // Bedrock model IDs and inference profiles differ by account and region, so there is no safe default.
+    const modelId = env.HOME_AHEAD_MODEL_ID;
+    if (!modelId) {
+      throw new Error('Bedrock needs HOME_AHEAD_MODEL_ID (a model ID or inference profile your AWS account can invoke in AWS_REGION).');
+    }
     return { model: new BedrockModel({ modelId, region: env.AWS_REGION ?? 'us-west-2', maxTokens: 2048 }), label: `Amazon Bedrock ${modelId}` };
   }
   return null;

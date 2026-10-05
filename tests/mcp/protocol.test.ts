@@ -155,3 +155,93 @@ describe('SDK v1 client (the one Strands Agents uses) against the v2 server', ()
     await client.close();
   });
 });
+
+async function initSession(url = mcpUrl): Promise<string> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'raw', version: '1' } } }),
+  });
+  await res.text();
+  return res.headers.get('mcp-session-id')!;
+}
+
+function listTools(sid: string, url = mcpUrl) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', 'mcp-session-id': sid, 'mcp-protocol-version': '2025-11-25' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' }),
+  });
+}
+
+describe('transport edge cases', () => {
+  it('answers malformed JSON with a JSON-RPC parse error (HTTP 400), not a 500', async () => {
+    const res = await fetch(mcpUrl, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: '{"jsonrpc":' });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toMatchObject({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
+
+    const agent = await fetch(`${app.server.url}/api/agent`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: 'not json' });
+    expect(agent.status).toBe(400);
+    expect(await agent.json()).toEqual({ error: 'Parse error' });
+  });
+
+  it('opens a server-to-client SSE stream on GET', async () => {
+    const sid = await initSession();
+    const ctrl = new AbortController();
+    const res = await fetch(mcpUrl, { headers: { accept: 'text/event-stream', 'mcp-session-id': sid, 'mcp-protocol-version': '2025-11-25' }, signal: ctrl.signal });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/text\/event-stream/);
+    expect(app.server.sessions.get(sid)!.streams).toBe(1);
+    ctrl.abort();
+    await expect.poll(() => app.server.sessions.get(sid)?.streams).toBe(0);
+  });
+
+  it('ends a session on DELETE; the id stops working', async () => {
+    const sid = await initSession();
+    expect((await listTools(sid)).status).toBe(200);
+    const del = await fetch(mcpUrl, { method: 'DELETE', headers: { 'mcp-session-id': sid, 'mcp-protocol-version': '2025-11-25' } });
+    expect(del.status).toBe(200);
+    expect((await listTools(sid)).status).toBe(404);
+  });
+
+  it('rejects a foreign Host header (DNS rebinding guard)', async () => {
+    const { request } = await import('node:http');
+    const port = new URL(mcpUrl).port;
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = request({ host: '127.0.0.1', port, path: '/mcp', method: 'POST', headers: { host: `evil.example:${port}`, 'content-type': 'application/json', accept: 'application/json, text/event-stream' } }, (res) => {
+        res.resume();
+        resolve(res.statusCode!);
+      });
+      req.on('error', reject);
+      req.end(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'raw', version: '1' } } }));
+    });
+    expect(status).toBe(403);
+  });
+});
+
+describe('session limits', () => {
+  it('drops the least recently used session at the cap, and idle sessions after the timeout', async () => {
+    const { createContext } = await import('../../src/context.js');
+    const { startServer } = await import('../../src/server/http.js');
+    const ctx = createContext({ host: '127.0.0.1', port: 0, stateFile: null, offline: true, videoSafe: false, demo: true, refreshMinutes: 0 });
+    const server = await startServer(ctx, { agent: async () => ({}), port: 0, maxSessions: 2, sessionIdleMs: 60_000 });
+    const url = `${server.url}/mcp`;
+    try {
+      const a = await initSession(url);
+      const b = await initSession(url);
+      expect((await listTools(b, url)).status).toBe(200); // b is now more recent than a
+      const c = await initSession(url);
+      expect(server.sessions.size).toBe(2);
+      expect((await listTools(a, url)).status).toBe(404);
+      expect((await listTools(c, url)).status).toBe(200);
+
+      expect(await server.sweepSessions(Date.now() + 30_000)).toBe(0);
+      expect(await server.sweepSessions(Date.now() + 61_000)).toBe(2);
+      expect(server.sessions.size).toBe(0);
+      expect((await listTools(b, url)).status).toBe(404);
+    } finally {
+      await server.close();
+    }
+  });
+});

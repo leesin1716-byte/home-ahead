@@ -28,6 +28,8 @@ export async function refreshRecalls(ctx: AppContext, fetchImpl?: FetchLike): Pr
       error = (err as Error).message;
     }
     newRecalls = [...new Set(newRecalls)];
+    // Keep what we merged even if a later term failed: matches recorded below must still resolve after a restart.
+    if (fetched) ctx.saveLiveRecalls();
   }
   const swept = ctx.service.sweep(true);
   return { fetched, newRecalls, newAlerts: swept.alerts.length, error };

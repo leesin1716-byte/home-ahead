@@ -52,4 +52,20 @@ test('the recall card renders from the tool result inside the sandboxed view', a
   await expect(view.locator('.src')).toContainText('U.S. CPSC recall 26290');
   // The view finished ui/initialize, so its size-changed notices reach the host and the frame grows to fit.
   await expect.poll(() => page.locator('#app-slot iframe').evaluate((f) => f.getBoundingClientRect().height)).toBeGreaterThan(500);
+  // The host enforces the view's declared CSP: no network access from inside the view.
+  const srcdoc = await page.locator('#app-slot iframe').getAttribute('srcdoc');
+  expect(srcdoc).toContain(`http-equiv="Content-Security-Policy"`);
+  expect(srcdoc).toContain("connect-src 'none'");
+  // no-cors would succeed (opaque response) from a sandboxed frame without the CSP; with it, the request never leaves.
+  const target = new URL('/api/health', page.url()).href;
+  const blocked = await view.locator('body').evaluate((_, u) => fetch(u, { mode: 'no-cors' }).then(() => 'allowed', () => 'blocked'), target);
+  expect(blocked).toBe('blocked');
+});
+
+test('a proactive recall alert names the CPSC recall it comes from', async ({ page }) => {
+  await page.request.post('/api/demo/reset');
+  await ready(page, '?tts=0');
+  await page.request.post('/api/demo/advance', { data: { days: 28 } });
+  await expect(page.locator('#alert-card')).toBeVisible();
+  await expect(page.locator('#alert-card .src')).toHaveText('U.S. CPSC recall 26794');
 });

@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Model, type BaseModelConfig, type Message, type ModelStreamEvent } from '@strands-agents/sdk';
 import { startApp, type RunningApp } from '../../src/app.js';
-import { StrandsAgentRunner } from '../../src/agent/strands.js';
+import { modelFromEnv, StrandsAgentRunner } from '../../src/agent/strands.js';
 import { extractModel, parseWhen } from '../../src/agent/planner.js';
 import { speechProblems } from '../../src/domain/speech.js';
 
@@ -155,5 +155,129 @@ describe('Strands Agents path (SDK v1 MCP client, scripted model, no API key)', 
     expect(reply.spoken).toMatch(/don't use that high chair/);
     expect(reply.protocolVersion).toBe('2025-11-25');
     await runner.close();
+  });
+});
+
+/** Records the system prompt of every model call; answers with the tool's text like ScriptedModel. */
+class PromptRecordingModel extends ScriptedModel {
+  prompts: string[] = [];
+  override async *stream(messages: Message[], options?: { systemPrompt?: unknown }): AsyncGenerator<ModelStreamEvent> {
+    this.prompts.push(String(options?.systemPrompt ?? ''));
+    yield* super.stream(messages);
+  }
+}
+
+/** Calls a tool, then fails on the follow-up model call (a network error, a quota error). */
+class FailsAfterToolModel extends ScriptedModel {
+  override async *stream(messages: Message[]): AsyncGenerator<ModelStreamEvent> {
+    if (this.calls >= 1) {
+      this.calls++;
+      throw new Error('model unavailable');
+    }
+    yield* super.stream(messages);
+  }
+}
+
+/** Fails before anything runs. */
+class FailsAtOnceModel extends ScriptedModel {
+  override async *stream(): AsyncGenerator<ModelStreamEvent> {
+    this.calls++;
+    throw new Error('model unavailable');
+  }
+}
+
+function runner(model: ScriptedModel) {
+  return new StrandsAgentRunner({
+    mcpUrl: `${app.server.url}/mcp`,
+    model: model as unknown as Model,
+    now: () => app.ctx.clock.localNow(),
+    uiFor: (t) => (t === 'check_secondhand_item' ? 'ui://home-ahead/recall-card-test.html' : undefined),
+  });
+}
+
+describe('Strands Agents path: clock and failures', () => {
+  it('refreshes the date in the system prompt on every turn of a conversation', async () => {
+    app.ctx.resetDemo();
+    const model = new PromptRecordingModel();
+    const r = runner(model);
+    await r.handle('Check this high chair, model TB-HC6900.', 'days');
+    app.ctx.clock.advanceDays(21);
+    await r.handle('And again.', 'days');
+    expect(model.prompts[0]).toContain('Friday, August 28, 2026');
+    expect(model.prompts.at(-1)).toContain('Friday, September 18, 2026');
+    expect(model.prompts.at(-1)).not.toContain('August 28');
+    await r.close();
+  });
+
+  it('does not hand the turn to the planner after a tool already ran (no repeated side effects)', async () => {
+    app.ctx.resetDemo();
+    const model = new FailsAfterToolModel();
+    const r = runner(model);
+    const reply = await r.handle('My sister gave us a high chair, model TB-HC6900.', 'fail');
+    expect(reply.calls.map((c) => c.tool)).toEqual(['check_secondhand_item']);
+    expect(reply.spoken).toMatch(/don't use that high chair/);
+    expect(reply.ui?.result.verdict).toBe('do_not_use');
+    expect(app.ctx.service.household().items.filter((i) => i.category === 'high_chair')).toHaveLength(1);
+    await r.close();
+  });
+
+  it('throws when the model fails before any tool runs, so /api/agent can use the planner', async () => {
+    const r = runner(new FailsAtOnceModel());
+    await expect(r.handle('Hello', 'x')).rejects.toThrow('model unavailable');
+    await r.close();
+  });
+
+  it('requires an explicit Bedrock model ID instead of guessing one', async () => {
+    await expect(modelFromEnv({ HOME_AHEAD_AGENT: 'bedrock', AWS_REGION: 'us-west-2' })).rejects.toThrow(/HOME_AHEAD_MODEL_ID/);
+    expect(await modelFromEnv({})).toBeNull();
+  });
+});
+
+describe('planner beyond the demo script', () => {
+  async function sayIn(conversationId: string, text: string) {
+    const res = await fetch(`${app.server.url}/api/agent`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, conversationId }) });
+    const body = (await res.json()) as { spoken: string; calls: { tool: string; args: Record<string, unknown>; result: { structuredContent: Record<string, any> } }[] };
+    expect(speechProblems(body.spoken), body.spoken).toEqual([]);
+    return body;
+  }
+
+  it('answers "is my crib safe" and takes the model number that follows', async () => {
+    app.ctx.resetDemo();
+    let r = await sayIn('off1', 'Is my crib safe?');
+    expect(r.calls.map((c) => c.tool)).toEqual(['check_secondhand_item']);
+    expect(r.calls[0].args).toMatchObject({ category: 'crib', source: 'owned' });
+    expect(r.spoken).toMatch(/model number/);
+    r = await sayIn('off1', 'Model CR-2208, no bumpers.');
+    expect(r.calls[0].args).toMatchObject({ category: 'crib', model: 'CR-2208', hasBumpers: false });
+    expect(r.spoken).toMatch(/fine to use/);
+  });
+
+  it('uses the dresser on file for "is our dresser recalled"', async () => {
+    app.ctx.resetDemo();
+    const r = await sayIn('off2', 'Is our dresser recalled?');
+    expect(r.calls[0].result.structuredContent.item.model).toBe('LDQMFJ8D-WH');
+  });
+
+  it('attaches a model number said on its own to the item it names, or the last one', async () => {
+    app.ctx.resetDemo();
+    let r = await sayIn('off3', 'The dresser model is LDQMFJ8D-WH.');
+    expect(r.calls[0]).toMatchObject({ tool: 'check_secondhand_item', args: { category: 'dresser', model: 'LDQMFJ8D-WH', source: 'owned' } });
+    await sayIn('off3', 'We just got a bookcase for the living room.');
+    r = await sayIn('off3', 'The label says BK-4410.');
+    expect(r.calls[0].args).toMatchObject({ category: 'bookcase', model: 'BK-4410' });
+    expect(app.ctx.service.household().items.filter((i) => i.category === 'bookcase')).toHaveLength(1);
+  });
+
+  it('every "Try saying" line in the README reaches a tool', async () => {
+    app.ctx.resetDemo();
+    const readme = (await import('node:fs')).readFileSync(new URL('../../README.md', import.meta.url), 'utf8');
+    const section = readme.split('### Try saying')[1].split('\n## ')[0];
+    const lines = [...section.matchAll(/^\d+\. "(.+)"/gm)].map((m) => m[1]);
+    expect(lines.length).toBeGreaterThanOrEqual(8);
+    for (const line of lines) {
+      const r = await sayIn('readme', line);
+      expect(r.calls.length, `${line} -> ${r.spoken}`).toBeGreaterThan(0);
+      expect(r.spoken, line).not.toMatch(/^I can check hand-me-downs/);
+    }
   });
 });

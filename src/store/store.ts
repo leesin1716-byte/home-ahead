@@ -17,6 +17,14 @@ export function emptyHousehold(now: Date): Household {
   };
 }
 
+/** Write JSON to a temp file and rename it into place, so a crash mid-write never leaves a broken file. */
+export function writeJsonAtomic(file: string, data: unknown): void {
+  mkdirSync(dirname(file), { recursive: true });
+  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+  writeFileSync(tmp, JSON.stringify(data, null, 2));
+  renameSync(tmp, file);
+}
+
 export class HouseholdStore {
   private cache: Household | undefined;
 
@@ -39,10 +47,7 @@ export class HouseholdStore {
   save(h: Household): void {
     this.cache = h;
     if (!this.file) return;
-    mkdirSync(dirname(this.file), { recursive: true });
-    const tmp = `${this.file}.${process.pid}.${Date.now()}.tmp`;
-    writeFileSync(tmp, JSON.stringify(h, null, 2));
-    renameSync(tmp, this.file);
+    writeJsonAtomic(this.file, h);
   }
 
   /** Apply a change and persist it; the callback mutates the household in place. */

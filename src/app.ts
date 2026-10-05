@@ -18,7 +18,8 @@ export async function startApp(env: NodeJS.ProcessEnv = process.env, overrides: 
   const server = await startServer(ctx, {
     agent: async (body) => (agent ? agent.handle(body) : { error: 'agent is starting' }),
   });
-  agent = await createAgentService(`${server.url}/mcp`, () => ctx.clock.now(), env);
+  // The agent reasons in the household's wall-clock time ("Saturday morning").
+  agent = await createAgentService(`${server.url}/mcp`, () => ctx.clock.localNow(), env);
   const stopScheduler = config.demo ? () => {} : startScheduler(ctx);
   const running = agent;
   return {

@@ -25,7 +25,7 @@ interface SecondhandInput {
   model?: string;
   hasBumpers?: boolean;
   room?: string;
-  source: 'hand_me_down' | 'secondhand';
+  source: 'hand_me_down' | 'secondhand' | 'owned';
 }
 
 interface Conversation {
@@ -33,6 +33,8 @@ interface Conversation {
   queue: SecondhandInput[];
   orderToken?: string;
   offeredSupplies?: boolean;
+  /** The item we last talked about, so "the model is …" has something to attach to. */
+  lastItem?: SecondhandInput;
 }
 
 const DEFAULT_ROOM: Partial<Record<CategoryId, string>> = {
@@ -174,6 +176,20 @@ export class Planner {
       return this.checkSecondhand(items[0], c, call, items.length > 1 ? `Happy to check ${items.length === 2 ? 'both' : 'all of them'}. ` : '');
     }
 
+    // 4b. "Is my crib safe?" / "Is our dresser recalled?" about something at home.
+    if (categories.length && /\b(is|are) (my|our|the|this|that|these|those)\b.*\b(safe|ok(ay)?|fine|recalled|on (a|any) recall)\b|\brecalls? (on|for) (my|our|the)\b/.test(lower)) {
+      const category = categories[0];
+      const model = extractModel(text);
+      return this.checkSecondhand({ category, room: lower.match(ROOM)?.[1] ?? DEFAULT_ROOM[category], source: 'owned', ...(model ? { model } : {}) }, c, call, '');
+    }
+
+    // 4c. A model number on its own ("the model is LDQMFJ8D-WH"): attach it to the item it names, or the last one.
+    const looseModel = /\b(model|label|it says|number is|sticker)\b/.test(lower) ? extractModel(text) : undefined;
+    if (looseModel && (categories.length === 1 || c.lastItem)) {
+      const base: SecondhandInput = categories.length === 1 ? { category: categories[0], room: DEFAULT_ROOM[categories[0]], source: 'owned' } : c.lastItem!;
+      return this.checkSecondhand({ ...base, model: looseModel }, c, call, '');
+    }
+
     // 5. A milestone ("she pulled herself up on the couch").
     const milestone = stageFromMilestone(lower);
     if (milestone && /\b(she|he|they|baby|started|just|today|first)\b/.test(lower) && !/\?$/.test(lower) && !/next stage/.test(lower)) {
@@ -208,7 +224,7 @@ export class Planner {
     }
 
     // 10. Supplies.
-    if (/\b(order|buy|cart|shopping|get (the |me |us )?(supplies|kits?|them|those|what we need))\b/.test(lower)) {
+    if (/\b(order|buy|cart|shopping|get (the |me |us )?(safety )?(supplies|kits?|them|those|what we need))\b/.test(lower)) {
       return this.prepareOrder(c, call);
     }
 
@@ -230,10 +246,11 @@ export class Planner {
       const room = lower.match(ROOM)?.[1];
       const model = categories.length === 1 ? extractModel(text) : undefined;
       const items = categories.slice(0, 5).map((category) => ({ category, room: room ?? DEFAULT_ROOM[category], ...(model ? { model } : {}) }));
+      if (items.length === 1) c.lastItem = { ...items[0], source: 'owned' };
       return (await call('add_items', { items })).result.spoken;
     }
 
-    return 'I can check hand-me-downs for recalls, re-check your home when your baby reaches a new stage, and get safety supplies. What would you like to do?';
+    return 'I can check hand-me-downs and things at home for recalls, re-check your home when your baby reaches a new stage, and get safety supplies. What would you like to do?';
   }
 
   private fillAnswer(input: SecondhandInput, lower: string, raw: string): SecondhandInput | undefined {
@@ -267,6 +284,7 @@ export class Planner {
     prefix: string,
   ): Promise<string> {
     const r = await call('check_secondhand_item', { ...input });
+    c.lastItem = { ...input, model: undefined };
     const sc = r.result.structuredContent as { verdict?: string; questions?: string[] };
     if (sc.verdict === 'need_info' || (sc.questions?.length && sc.verdict !== 'do_not_use' && !input.model)) {
       c.pending = { input, asked: sc.questions ?? [] };

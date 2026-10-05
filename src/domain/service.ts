@@ -10,6 +10,7 @@ import { findingsFor, type Finding, type RuleFile } from './rules.js';
 import { capitalize, countPhrase, listPhrase, money } from './speech.js';
 import { ageInMonths, effectiveStage, nextStage, STAGE_LABELS, stageFromMilestone } from './stages.js';
 import type { Alert, Child, Household, Item, ItemSource, Order, RecallMatch, RemedyStatus, Stage, Task } from './types.js';
+import { STAGES } from './types.js';
 import type { HouseholdStore } from '../store/store.js';
 
 export interface Catalog {
@@ -48,6 +49,9 @@ export interface ItemInput {
 }
 
 const ORDER_TTL_MS = 15 * 60 * 1000;
+
+/** Things a family straps or anchors to the wall. */
+const ANCHORABLE = new Set<CategoryId>(['dresser', 'bookcase', 'tv']);
 
 function newId(prefix: string): string {
   return `${prefix}_${randomBytes(4).toString('hex')}`;
@@ -92,6 +96,11 @@ export class HomeService {
 
   private visible(): RecallRecord[] {
     return this.deps.index.visible(this.now());
+  }
+
+  /** A recorded match whose notice is no longer in the index (e.g. a live record that was lost) is skipped, not fatal. */
+  private known(m: RecallMatch): RecallRecord | undefined {
+    return this.deps.index.get(m.recallNumber);
   }
 
   private view(rec: RecallRecord, item?: Item, match?: RecallMatch): RecallView {
@@ -232,7 +241,7 @@ export class HomeService {
         const needsSupplies = open.some((f) => f.supplies.length > 0);
         spoken =
           `${observed ? 'Big milestone! ' : ''}${child.nickname} is ${STAGE_LABELS[stage]} now, so I re-checked the home. ` +
-          `${capitalize(countPhrase(open.length, 'thing'))} need${open.length === 1 ? 's' : ''} attention${headline.length < open.length ? ', starting with' : ':'} ${listPhrase(headline.map((f) => f.title.charAt(0).toLowerCase() + f.title.slice(1)))}. ` +
+          `${capitalize(countPhrase(open.length, 'thing'))} need${open.length === 1 ? 's' : ''} attention${headline.length < open.length ? '. First up:' : ':'} ${listPhrase(headline.map((f) => f.title.charAt(0).toLowerCase() + f.title.slice(1)))}. ` +
           `The room-by-room plan is on screen.${needsSupplies ? ' Want me to get the supplies?' : ''}`;
       }
       return {
@@ -276,6 +285,8 @@ export class HomeService {
       const top = alerts[0];
       if (top) {
         spoken += ` One heads-up: the ${top.item.name} ${top.hit.confidence === 'confirmed' ? 'matches' : 'may match'} a ${top.hit.recall.recallDate.slice(0, 4)} recall for a ${this.view(top.hit.recall).hazardShort}. Details are on screen.`;
+      } else {
+        spoken += this.stageNoteFor(h, added);
       }
       return {
         spoken,
@@ -288,7 +299,37 @@ export class HomeService {
     });
   }
 
+  /**
+   * What a newly added item means for the child's stage: a task now ("anchor the bookcase"), or a
+   * heads-up for the stage when it starts to matter. Empty when no rule applies.
+   */
+  private stageNoteFor(h: Household, added: Item[]): string {
+    const child = h.children[0];
+    const ids = new Set(added.map((i) => i.id));
+    const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+    if (child) {
+      const stage = effectiveStage(child, this.now());
+      const now = findingsFor(h, stage, this.deps.rules).filter((f) => ids.has(f.itemId));
+      if (now.length) {
+        this.ensureTasks(h, now);
+        return ` Since ${child.nickname} is ${STAGE_LABELS[stage]}, ${lower(now[0].title)}. I added it to the plan.`;
+      }
+    }
+    // Not needed yet: say when it will be.
+    const current = child ? effectiveStage(child, this.now()) : undefined;
+    for (const later of STAGES.slice(current ? STAGES.indexOf(current) + 1 : 0)) {
+      const f = findingsFor(h, later, this.deps.rules).find((x) => ids.has(x.itemId));
+      if (f) return ` Once ${child ? child.nickname : 'your baby'} starts ${STAGE_LABELS[later]}, ${lower(f.title)}.`;
+    }
+    return '';
+  }
+
   checkSecondhandItem(input: ItemInput & { register?: boolean }) {
+    // "Is my dresser safe?" about something already registered: use the model number we have on file.
+    if ((input.source ?? 'hand_me_down') === 'owned' && !input.model) {
+      const onFile = this.household().items.find((i) => i.status === 'active' && i.category === input.category && i.source === 'owned' && i.model);
+      if (onFile) input = { ...input, model: onFile.model, brand: input.brand ?? onFile.brand, room: input.room ?? onFile.room, name: input.name ?? onFile.name };
+    }
     const visible = this.visible();
     const label = (input.name ?? CATEGORIES[input.category].label).toLowerCase().replace(/^(an?|the|my|our)\s+/, '');
     const banned = this.deps.rules.secondhand.find((r) => r.categories.includes(input.category));
@@ -334,8 +375,17 @@ export class HomeService {
     let item: Item | undefined;
     if (verdict !== 'need_info' && input.register !== false) {
       item = this.deps.store.update((h) => {
-        const existing = h.items.find((i) => i.status === 'active' && i.category === probe.category && i.source !== 'owned' && !i.model && !!probe.model);
-        const it = existing ? Object.assign(existing, { model: probe.model, brand: probe.brand ?? existing.brand, hasBumpers: probe.hasBumpers ?? existing.hasBumpers }) : probe;
+        // Fill in the model on the item we already know instead of adding a second one. A hand-me-down
+        // only merges into a model-less hand-me-down; an owned item merges into the owned one it describes.
+        const existing = h.items.find(
+          (i) =>
+            i.status === 'active' &&
+            i.category === probe.category &&
+            (probe.source === 'owned'
+              ? i.source === 'owned' && (!i.model || !probe.model || i.model === probe.model)
+              : i.source !== 'owned' && !i.model && !!probe.model),
+        );
+        const it = existing ? Object.assign(existing, { model: probe.model ?? existing.model, brand: probe.brand ?? existing.brand, hasBumpers: probe.hasBumpers ?? existing.hasBumpers }) : probe;
         if (input.hasBumpers) it.hasBumpers = true;
         if (verdict === 'do_not_use') it.doNotUse = true;
         if (!existing) h.items.push(it);
@@ -390,7 +440,8 @@ export class HomeService {
         for (const m of this.recordHits(h, item, hits)) {
           added.push(m);
           if (!notify) continue;
-          const rec = this.deps.index.get(m.recallNumber)!;
+          const rec = this.known(m);
+          if (!rec) continue;
           const v = this.view(rec, item, m);
           const where = item.room ? ` in the ${item.room}` : '';
           const keep = v.stopUsing === 'if_not_anchored' && item.anchored ? ` Since you anchored it, it can stay in use for now.` : v.stopUsing === 'yes' ? ' Stop using it for now.' : '';
@@ -436,7 +487,7 @@ export class HomeService {
     this.deps.onAlertsChanged?.();
     const items = h.items.filter((i) => i.status === 'active');
     const open = h.recallMatches
-      .filter((m) => m.remedyStatus !== 'resolved' && (!_input.onlyNew || !before || m.firstSeenAt > before))
+      .filter((m) => m.remedyStatus !== 'resolved' && this.known(m) && (!_input.onlyNew || !before || m.firstSeenAt > before))
       .sort((a, b) => {
         const an = !before || a.firstSeenAt > before ? 0 : 1;
         const bn = !before || b.firstSeenAt > before ? 0 : 1;
@@ -445,23 +496,29 @@ export class HomeService {
       .slice(0, 5);
     const views = open.map((m) => {
       const item = h.items.find((i) => i.id === m.itemId);
-      return { ...this.view(this.deps.index.get(m.recallNumber)!, item, m), isNew: !before || m.firstSeenAt > before };
+      return { ...this.view(this.known(m)!, item, m), isNew: !before || m.firstSeenAt > before };
     });
     let spoken: string;
     if (!views.length) {
       spoken = `I checked your ${countPhrase(items.length, 'item')} against ${visible.length} federal recall notices. Nothing matches.`;
     } else {
       const first = views[0];
+      const fresh = views.filter((v) => v.isNew).length;
+      const count =
+        views.length === 1 && fresh === 1
+          ? 'One new recall on your list'
+          : `${capitalize(countPhrase(views.length, 'recall'))} on your list${fresh ? `, ${fresh === views.length ? 'all new' : `${countPhrase(fresh, '').trim()} new`}` : ''}`;
       spoken =
-        `${capitalize(countPhrase(views.length, 'recall'))} on your list${views.some((v) => v.isNew) ? `, ${views.filter((v) => v.isNew).length} new` : ''}. ` +
+        `${count}. ` +
         `Most important: the ${first.itemName}, for a ${first.hazardShort}. ${first.stopUsing === 'yes' && first.remedyStatus === 'open' ? 'Stop using it. ' : ''}Details are on screen.`;
     }
     return { spoken, data: { checkedItems: items.length, noticesSearched: visible.length, matches: views } };
   }
 
   private findMatch(h: Household, recall?: string, item?: string): RecallMatch | undefined {
-    const open = h.recallMatches.filter((m) => m.remedyStatus !== 'resolved');
-    if (recall && recall !== 'latest') return h.recallMatches.find((m) => m.recallNumber === recall);
+    const usable = h.recallMatches.filter((m) => this.known(m));
+    const open = usable.filter((m) => m.remedyStatus !== 'resolved');
+    if (recall && recall !== 'latest') return usable.find((m) => m.recallNumber === recall);
     if (item) {
       const words = keywords(item);
       const hit = open.find((m) => {
@@ -480,7 +537,7 @@ export class HomeService {
         return { isError: true, spoken: "I don't have an open recall for that. Ask me to check for recalls first.", data: { error: 'no_match' } };
       }
       const item = h.items.find((i) => i.id === m.itemId);
-      const rec = this.deps.index.get(m.recallNumber)!;
+      const rec = this.known(m)!;
       const v = this.view(rec, item, m);
       this.markRecallAlertsRead(h, m.recallNumber);
       const name = item?.name ?? 'item';
@@ -556,7 +613,7 @@ export class HomeService {
       } else if (!open.length) {
         spoken = `Your home is in good shape for ${STAGE_LABELS[target]}. Everything on the list is done.`;
       } else {
-        spoken = `For ${STAGE_LABELS[target]}, ${countPhrase(open.length, 'thing')} ${open.length === 1 ? 'is' : 'are'} open: ${listPhrase(open.slice(0, 3).map((f) => f.title.charAt(0).toLowerCase() + f.title.slice(1)))}. The plan is on screen.`;
+        spoken = `For ${STAGE_LABELS[target]}, ${countPhrase(open.length, 'thing')} ${open.length === 1 ? 'is' : 'are'} open${open.length > 3 ? '. First up:' : ':'} ${listPhrase(open.slice(0, 3).map((f) => f.title.charAt(0).toLowerCase() + f.title.slice(1)))}. The plan is on screen.`;
       }
       return { spoken, data: { child: { nickname: child.nickname, stage: current }, ...data } };
     });
@@ -640,12 +697,12 @@ export class HomeService {
         const m = this.findMatch(h, input.recall, input.task);
         if (!m) return { isError: true, spoken: "I don't have an open recall to update.", data: { error: 'no_match' } };
         const item = h.items.find((i) => i.id === m.itemId);
-        const rec = this.deps.index.get(m.recallNumber)!;
+        const rec = this.known(m)!;
         m.remedyStatus = input.remedyStatus;
         m.remedyUpdatedAt = this.now().toISOString();
         let spoken: string;
         if (input.remedyStatus === 'requested') {
-          const due = new Date(this.now().getTime() + 14 * 864e5).toISOString().slice(0, 10) + 'T09:00';
+          const due = new Date(this.deps.clock.localNow().getTime() + 14 * 864e5).toISOString().slice(0, 10) + 'T09:00';
           h.tasks.push({
             id: newId('tk'),
             title: `Check that the ${item?.name ?? 'recall'} fix arrived`,
@@ -678,7 +735,22 @@ export class HomeService {
         .filter((s) => !input.task || s.score > 0)
         .sort((a, b) => b.score - a.score);
       const targets = action === 'complete' && input.task ? scored.map((s) => s.t) : scored.slice(0, 1).map((s) => s.t);
-      if (!targets.length) return { isError: true, spoken: "I couldn't find that on your list.", data: { error: 'no_task' } };
+      if (!targets.length) {
+        // "We anchored the bookcase" when anchoring it was never on the list: still worth remembering.
+        const item = h.items.find((i) => i.status === 'active' && words.some((w) => keywords(i.name).includes(w) || i.category === w));
+        if (action === 'complete' && item && ANCHORABLE.has(item.category) && /\b(anchor|strap|mount|secur|bolt|attach)/i.test(input.task ?? '')) {
+          item.anchored = true;
+          return {
+            spoken: `Noted: the ${item.name} is anchored. It wasn't on your to-do list, so there was nothing to check off.`,
+            data: { tasks: [], item: { name: item.name, anchored: true } },
+          };
+        }
+        return {
+          isError: true,
+          spoken: action === 'complete' ? "That isn't on your open list, so there's nothing to check off. Ask me what's left on the plan." : "I couldn't find that on your list.",
+          data: { error: 'no_task' },
+        };
+      }
 
       const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
       let spoken: string;
@@ -695,13 +767,16 @@ export class HomeService {
           break;
         case 'schedule': {
           if (!input.when) return { isError: true, spoken: 'When should I schedule it?', data: { error: 'no_time' } };
+          if (input.when < this.deps.clock.localIso()) {
+            return { isError: true, spoken: `${formatWhen(input.when)} has already passed. When should I schedule it?`, data: { error: 'past_time' } };
+          }
           for (const t of targets) t.dueAt = input.when;
           spoken = `Done. "${targets[0].title}" is on your calendar for ${formatWhen(input.when)}.`;
           break;
         }
         case 'snooze':
           for (const t of targets) {
-            const base = t.dueAt ? new Date(`${t.dueAt}:00Z`) : this.now();
+            const base = t.dueAt ? new Date(`${t.dueAt}:00Z`) : this.deps.clock.localNow();
             t.dueAt = new Date(base.getTime() + 7 * 864e5).toISOString().slice(0, 16);
           }
           spoken = `Okay, I moved ${lower(targets[0].title)} to ${formatWhen(targets[0].dueAt!)}.`;
@@ -725,6 +800,7 @@ export class HomeService {
     const now = this.now();
     return {
       now: now.toISOString(),
+      timeZone: this.deps.clock.timeZone,
       simulatedClock: this.deps.clock.isSimulated(),
       children: h.children.map((c) => ({ nickname: c.nickname, stage: effectiveStage(c, now), stageLabel: STAGE_LABELS[effectiveStage(c, now)] })),
       items: h.items.filter((i) => i.status === 'active').map((i) => ({ name: i.name, category: i.category, room: i.room ?? null, source: i.source, anchored: i.anchored ?? null })),

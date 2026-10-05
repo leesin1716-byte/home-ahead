@@ -64,6 +64,7 @@ body { background: radial-gradient(1200px 700px at 50% 38%, #2a2018 0%, var(--pa
 .alert-card .k { color: var(--warm); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 17px; }
 .alert-card .t { font-size: 34px; font-weight: 800; margin: 8px 0; line-height: 1.15; }
 .alert-card .s { font-size: 22px; color: #e9dcc6; line-height: 1.35; }
+.alert-card .src { margin-top: 14px; font-size: 17px; color: var(--warm); letter-spacing: .02em; }
 
 .chapter { position: absolute; inset: 0; background: #05090cf2; display: grid; place-items: center; z-index: 10; animation: fade .4s ease; }
 .chapter span { font-size: 64px; font-weight: 300; letter-spacing: -.01em; }
