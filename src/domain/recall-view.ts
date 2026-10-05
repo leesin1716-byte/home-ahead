@@ -22,6 +22,8 @@ export interface RecallView {
   injuries: string;
   sourceLabel: string;
   url: string;
+  /** What to print on screen for the link (no brand names in video-safe mode). */
+  urlLabel: string;
   confidence?: Confidence;
   itemId?: string;
   itemName?: string;
@@ -108,6 +110,7 @@ export function recallView(rec: RecallRecord, index: RecallIndex, opts: ViewOpti
     injuries: r(rec.injuries.join(' ')),
     sourceLabel: `U.S. CPSC recall ${rec.recallNumber}`,
     url: rec.url,
+    urlLabel: opts.videoSafe ? 'cpsc.gov/Recalls' : rec.url.replace(/^https?:\/\/(www\.)?/, ''),
     confidence: opts.confidence,
     itemId: opts.item?.id,
     itemName: opts.item?.name,
