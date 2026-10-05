@@ -1,6 +1,6 @@
-// 데모 영상 제작기: 시뮬레이터 데모를 두 번 돌려(대사 수집 → 녹화) Kokoro 음성과 ffmpeg로 mp4·자막·스크린샷을 만든다
+// 데모 영상 제작기: 시뮬레이터 데모를 두 번 돌려(대사 수집 → CDP 화면 캡처) Kokoro 음성·알림 차임과 ffmpeg로 mp4·자막·스크린샷을 만든다
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser } from '@playwright/test';
 import { startApp } from '../src/app.js';
@@ -32,21 +32,58 @@ function linesFrom(events: DemoEvent[]): Line[] {
   return lines;
 }
 
-async function playDemo(browser: Browser, url: string, opts: { speed: number; durations?: Record<string, number>; videoDir?: string }) {
-  const context = await browser.newContext({
-    viewport: { width: 1920, height: 1080 },
-    ...(opts.videoDir ? { recordVideo: { dir: opts.videoDir, size: { width: 1920, height: 1080 } } } : {}),
-  });
+type Frame = { file: string; at: number };
+
+/**
+ * Plays the scripted demo. With `framesDir`, captures the screen through the Chrome DevTools
+ * screencast as high-quality JPEG frames with their own timestamps. Playwright's built-in recorder
+ * encodes at a fixed ~1 Mbps, which blurs small text at 1080p.
+ */
+async function playDemo(browser: Browser, url: string, opts: { speed: number; durations?: Record<string, number>; framesDir?: string }) {
+  const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   if (opts.durations) await context.addInitScript((d) => ((window as any).__homeAheadDurations = d), opts.durations);
   const page = await context.newPage();
+  const frames: Frame[] = [];
+  const cdp = opts.framesDir ? await context.newCDPSession(page) : undefined;
+  if (cdp && opts.framesDir) {
+    const dir = opts.framesDir;
+    mkdirSync(dir, { recursive: true });
+    cdp.on('Page.screencastFrame', (f) => {
+      const file = join(dir, `${String(frames.length).padStart(6, '0')}.jpg`);
+      writeFileSync(file, Buffer.from(f.data, 'base64'));
+      frames.push({ file, at: f.metadata.timestamp ? f.metadata.timestamp * 1000 : Date.now() });
+      void cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {});
+    });
+    await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: 1920, maxHeight: 1080 });
+  }
   const videoStart = Date.now();
   await page.goto(`${url}/?demo=1&record&tts=0&speed=${opts.speed}&startDelay=1200`);
   await page.waitForFunction(() => (window as any).__homeAhead?.done === true, null, { timeout: 15 * 60_000, polling: 500 });
   await page.waitForTimeout(1500 / opts.speed);
+  const videoEnd = Date.now();
+  if (cdp) await cdp.send('Page.stopScreencast');
   const events = (await page.evaluate(() => (window as any).__homeAhead.events)) as DemoEvent[];
-  const video = page.video();
   await context.close();
-  return { events, videoStart, videoPath: video ? await video.path() : undefined };
+  return { events, videoStart, videoEnd, frames };
+}
+
+/** An ffconcat list that holds each frame until the next one; the first frame covers from `start` (ms, wall clock). */
+function frameList(frames: Frame[], start: number, end: number): string {
+  const name = (f: Frame) => `file '${f.file.replace(/\\/g, '/')}'`;
+  const out = ['ffconcat version 1.0'];
+  frames.forEach((f, i) => {
+    const from = i === 0 ? start : f.at;
+    const to = i + 1 < frames.length ? frames[i + 1].at : end;
+    out.push(name(f), `duration ${(Math.max(to - from, 1) / 1000).toFixed(4)}`);
+  });
+  out.push(name(frames[frames.length - 1]));
+  return `${out.join('\n')}\n`;
+}
+
+/** Two soft tones (660 Hz, then 880 Hz): the chime the simulator plays with WebAudio, which a screen capture cannot hear. */
+function makeChime(file: string) {
+  const expr = '0.22*sin(2*PI*660*t)*exp(-7*t)+0.22*sin(2*PI*880*(t-0.18))*exp(-7*(t-0.18))*gte(t\\,0.18)';
+  execFileSync('ffmpeg', ['-y', '-f', 'lavfi', '-i', `aevalsrc=${expr}:s=24000:d=0.9`, file], { stdio: 'ignore' });
 }
 
 async function synthesize(lines: Line[]): Promise<Record<string, number>> {
@@ -91,27 +128,35 @@ async function main() {
     const durations = await synthesize(lines);
 
     console.log('3/4 recording the simulator at real speed');
-    const rec = await playDemo(browser, app.server.url, { speed: 1, durations, videoDir: join(OUT, 'raw') });
-    const raw = join(OUT, 'raw.webm');
-    renameSync(rec.videoPath!, raw);
+    const framesDir = join(OUT, 'frames');
+    const rec = await playDemo(browser, app.server.url, { speed: 1, durations, framesDir });
+    const list = join(OUT, 'frames.txt');
+    writeFileSync(list, frameList(rec.frames, rec.videoStart, rec.videoEnd));
     // Each voice clip starts where the simulator marked its line; lines missing from the dry run stay silent.
     const cues = linesFrom(rec.events)
       .filter((l) => durations[l.key] !== undefined)
       .map((l) => ({ ...l, at: l.wall - rec.videoStart, ms: durations[l.key] }));
-    writeFileSync(join(OUT, 'timeline.json'), JSON.stringify({ events: rec.events, cues }, null, 2));
+    const chimes = rec.events.filter((e) => e.type === 'chime').map((e) => e.wall - rec.videoStart);
+    const chime = join(AUDIO, 'chime.wav');
+    makeChime(chime);
+    writeFileSync(join(OUT, 'timeline.json'), JSON.stringify({ events: rec.events, cues, chimes, frames: rec.frames.length }, null, 2));
     writeFileSync(
       join(OUT, 'home-ahead-demo.srt'),
       cues.map((c, i) => `${i + 1}\n${srtTime(c.at)} --> ${srtTime(c.at + c.ms - PAD_MS)}\n${c.text}\n`).join('\n'),
     );
 
     console.log('4/4 mixing voice-over and encoding');
-    const args = ['-y', '-i', raw];
-    for (const c of cues) args.push('-i', join(AUDIO, `${c.key}.wav`));
-    const delays = cues.map((c, i) => `[${i + 1}:a]adelay=${Math.max(0, c.at)}:all=1[a${i}]`).join(';');
-    const mix = `${delays};${cues.map((_, i) => `[a${i}]`).join('')}amix=inputs=${cues.length}:normalize=0:dropout_transition=0,loudnorm=I=-16:TP=-1.5:LRA=11[aout]`;
+    const args = ['-y', '-f', 'concat', '-safe', '0', '-i', list];
+    const clips = [...cues.map((c) => ({ file: join(AUDIO, `${c.key}.wav`), at: c.at })), ...chimes.map((at) => ({ file: chime, at }))];
+    for (const c of clips) args.push('-i', c.file);
+    const delays = clips.map((c, i) => `[${i + 1}:a]adelay=${Math.max(0, c.at)}:all=1[a${i}]`).join(';');
+    const mix =
+      `[0:v]fps=30,format=yuv420p[vout];${delays};` +
+      `${clips.map((_, i) => `[a${i}]`).join('')}amix=inputs=${clips.length}:normalize=0:dropout_transition=0,loudnorm=I=-16:TP=-1.5:LRA=11[aout]`;
     const mp4 = join(OUT, 'home-ahead-demo.mp4');
-    args.push('-filter_complex', mix, '-map', '0:v', '-map', '[aout]', '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', '30', '-c:a', 'aac', '-b:a', '192k', '-shortest', mp4);
+    args.push('-filter_complex', mix, '-map', '[vout]', '-map', '[aout]', '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', mp4);
     execFileSync('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    rmSync(framesDir, { recursive: true, force: true });
     const seconds = ffprobeSeconds(mp4);
 
     // Devpost gallery images (3:2): the whole 16:9 frame, letterboxed in the page color.
