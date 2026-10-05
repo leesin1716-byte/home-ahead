@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "description": "Home Ahead: an Alexa+ add-on (simulated) and MCP server that re-checks a home against real CPSC recalls as a child grows.",
   "scripts": {
-    "start": "tsx src/main.ts",
+    "start": "tsx --env-file-if-exists=.env src/main.ts",
+    "demo": "tsx --env-file-if-exists=.env src/main.ts --demo",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
