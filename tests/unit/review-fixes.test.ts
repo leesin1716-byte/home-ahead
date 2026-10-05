@@ -129,7 +129,7 @@ describe('plan sentence', () => {
     ctx.service.addItems({ items: [{ category: 'bookcase', room: 'living room' }] });
     ctx.service.setChildStage({ milestone: 'She pulled herself up on the couch today!' });
     const plan = ctx.service.getSafetyPlan({});
-    expect(plan.data.openCount).toBeGreaterThan(3);
+    expect((plan.data as { openCount: number }).openCount).toBeGreaterThan(3);
     expect(spoken(plan)).toMatch(/^For pulling up and cruising, \w+ things are open\. First up: /);
   });
 
