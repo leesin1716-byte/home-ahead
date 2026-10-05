@@ -1,0 +1,13 @@
+{
+  "name": "home-ahead-video",
+  "private": true,
+  "description": "Demo video tooling for Home Ahead: records the simulator and adds Kokoro-82M voice-over. Not needed to run the app.",
+  "type": "module",
+  "scripts": {
+    "make": "tsx make.ts"
+  },
+  "dependencies": {
+    "kokoro-js": "1.2.1"
+  },
+  "license": "MIT"
+}

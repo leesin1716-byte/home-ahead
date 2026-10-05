@@ -50,7 +50,7 @@ describe('demo scenario (service level)', () => {
     const cart = s.prepareSupplyOrder({});
     const order = cart.data.order!;
     expect(order.lines.map((l: { sku: string }) => l.sku).sort()).toEqual(['anchor-kit', 'cord-cleats', 'tv-strap']);
-    expect(spoken(cart)).toMatch(/Should I place the order\?/);
+    expect(spoken(cart)).toMatch(/^From the demo store: three safety items for \$\d+\.\d\d, listed on screen\. Should I place the order\?$/);
 
     const bad = s.confirmSupplyOrder({ token: 'nope' });
     expect(bad.isError).toBe(true);

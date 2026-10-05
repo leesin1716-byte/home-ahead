@@ -599,9 +599,13 @@ export class HomeService {
         expiresAt: new Date(now.getTime() + ORDER_TTL_MS).toISOString(),
       };
       h.orders.push(order);
-      const names = lines.map((l) => `${l.qty > 1 ? `${countPhrase(l.qty, '').trim()} ` : ''}${l.name.replace(/\s*\(.*\)$/, '').toLowerCase()}${l.qty > 1 ? 's' : ''}`);
+      const names = lines.map((l) => `${l.qty > 1 ? `${countPhrase(l.qty, '').trim()} ` : ''}${l.name.replace(/\s*\(.*\)$/, '').replace(/^[A-Z][a-z]/, (c) => c.toLowerCase())}${l.qty > 1 ? 's' : ''}`);
       return {
-        spoken: `From the demo store: ${listPhrase(names)}. That's ${money(total)}. Should I place the order?`,
+        // A spoken list longer than two items is hard to follow; the cart on screen carries the details.
+        spoken:
+          names.length <= 2
+            ? `From the demo store: ${listPhrase(names)}. That's ${money(total)}. Should I place the order?`
+            : `From the demo store: ${countPhrase(names.length, 'safety item')} for ${money(total)}, listed on screen. Should I place the order?`,
         data: { order: this.orderView(order) },
       };
     });

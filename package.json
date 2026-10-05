@@ -7,7 +7,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
-    "snapshot": "tsx scripts/build-snapshot.ts"
+    "snapshot": "tsx scripts/build-snapshot.ts",
+    "video": "tsx video/make.ts"
   },
   "keywords": [
     "alexa-plus",

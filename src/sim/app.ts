@@ -43,9 +43,10 @@ const screen = $('screen');
 const t0 = performance.now();
 
 /** Timeline the video recorder reads to place voice-over clips. */
-const events: { t: number; type: string; id?: string; text?: string }[] = [];
-(window as any).__homeAhead = { events, ready: false, done: false, durations: {} as Record<string, number> };
-const mark = (type: string, id?: string, text?: string) => events.push({ t: Math.round(performance.now() - t0), type, id, text });
+const events: { t: number; wall: number; type: string; id?: string; text?: string }[] = [];
+// The video recorder injects measured voice-over lengths before the page loads.
+(window as any).__homeAhead = { events, ready: false, done: false, durations: ((window as any).__homeAheadDurations ?? {}) as Record<string, number> };
+const mark = (type: string, id?: string, text?: string) => events.push({ t: Math.round(performance.now() - t0), wall: Date.now(), type, id, text });
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms / SPEED));
 
@@ -239,8 +240,9 @@ async function showNewAlerts() {
     card.innerHTML = `<div class="k">${alert.kind === 'recall' ? 'New recall' : 'Heads up'}</div><div class="t">${esc(alert.title)}</div><div class="s">${esc(alert.spoken)}</div>`;
     card.hidden = false;
     chime();
-    mark('alert', alert.id, alert.spoken);
-    await speakOrWait(alert.spoken, 'alert.assistant');
+    const alertId = `alert-${alertsSpoken}`;
+    mark('alert', alertId, alert.spoken);
+    await speakOrWait(alert.spoken, `${alertId}.assistant`);
     alertsSpoken++;
   }
   await refreshAmbient();
