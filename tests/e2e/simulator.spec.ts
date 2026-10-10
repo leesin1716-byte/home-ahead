@@ -103,7 +103,7 @@ test('a Strands reply shows the model and its token use without crowding the top
         calls: [],
         ui: null,
         mode: 'strands',
-        model: 'Claude claude-opus-5-5',
+        model: 'claude-opus-5-5',
         usage: { modelCalls: 2, inputTokens: 6, outputTokens: 275, cacheReadInputTokens: 6628, cacheWriteInputTokens: 345, modelMs: 4361 },
         protocolVersion: '2025-11-25',
       },
@@ -113,7 +113,7 @@ test('a Strands reply shows the model and its token use without crowding the top
   await page.evaluate(async () => {
     await (window as any).__homeAhead.ask('My sister is giving us her old high chair and crib.');
   });
-  await expect(page.locator('#mode-badge')).toHaveText('Strands agent · Claude claude-opus-5-5 · MCP 2025-11-25');
+  await expect(page.locator('#mode-badge')).toHaveText('Strands agent · claude-opus-5-5 · MCP 2025-11-25');
   await page.locator('#inspector-toggle').click();
   const turn = page.locator('#calls li.turn');
   await expect(turn).toContainText('model claude-opus-5-5');

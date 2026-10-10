@@ -9,8 +9,8 @@ import type { AgentReply, TurnUsage, UiRef } from './planner.js';
 export const SYSTEM_PROMPT = `You are Home Ahead, an add-on for a voice assistant on a kitchen smart display.
 You help a family keep their home safe as their baby grows, using the Home Ahead tools.
 - Use a tool for anything about the child's stage, items in the home, hand-me-downs, recalls, the safety plan, supplies or tasks.
-- Each tool result has a "spoken" field. Reply with that text, lightly joined if you called more than one tool. Keep replies under 60 words; the screen shows the details.
-- Your reply is read aloud: plain sentences only, no markdown, lists or headings.
+- Each tool result has a "spoken" field. Reply with that text, lightly joined if you called more than one tool. Keep replies under 40 words; the screen shows the details.
+- Your whole reply is read aloud to the family as written: only the words to say, in plain sentences, with no notes about your reply, markdown, lists or headings.
 - Never read out URLs, IDs, JSON or tool names.
 - Never call confirm_supply_order unless the user has just clearly said yes to the cart you prepared.
 - When a tool asks a question (for example a model number), ask it and wait for the answer.
@@ -151,7 +151,7 @@ export class RecordingTransport implements Transport {
 export interface StrandsOptions {
   mcpUrl: string;
   model: Model;
-  /** Shown on the simulator and in replies, e.g. "Claude claude-opus-5-5". */
+  /** Shown on the simulator and in replies, e.g. "claude-opus-5-5". */
   modelLabel?: string;
   /** The household's wall-clock time (UTC fields hold local time); read on every turn so the date never goes stale. */
   now: () => Date;
@@ -300,7 +300,7 @@ export async function modelFromEnv(env: NodeJS.ProcessEnv = process.env): Promis
   if (env.HOME_AHEAD_AGENT === 'planner') return null;
   if (env.ANTHROPIC_API_KEY) {
     const modelId = env.HOME_AHEAD_MODEL_ID ?? 'claude-opus-5-5';
-    return { model: await anthropicModel({ apiKey: env.ANTHROPIC_API_KEY, modelId, effort: env.HOME_AHEAD_EFFORT }), label: `Claude ${modelId}` };
+    return { model: await anthropicModel({ apiKey: env.ANTHROPIC_API_KEY, modelId, effort: env.HOME_AHEAD_EFFORT }), label: modelId };
   }
   if (env.HOME_AHEAD_AGENT === 'bedrock' || (env.AWS_REGION && (env.AWS_PROFILE || env.AWS_ACCESS_KEY_ID))) {
     const { BedrockModel } = await import('@strands-agents/sdk/models/bedrock');

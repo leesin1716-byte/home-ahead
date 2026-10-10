@@ -63,7 +63,7 @@ async function service(script: Scripted[], opts: { env?: NodeJS.ProcessEnv; firs
   const api = fakeApi(script);
   const model = await anthropicModel({ apiKey: 'test-key', clientConfig: { fetch: api.fetch, maxRetries: 0, timeout: 3000 } });
   const svc = await createAgentService(`${app.server.url}/mcp`, () => app.ctx.clock.localNow(), opts.env ?? {}, {
-    model: { model, label: 'Claude claude-opus-5-5' },
+    model: { model, label: 'claude-opus-5-5' },
     firstToolTimeoutMs: opts.firstToolTimeoutMs,
   });
   const say = async (text: string) => (await svc.handle({ text, conversationId: 'c' })) as AgentReply;
@@ -82,7 +82,7 @@ describe('Claude through Strands, against a fake Anthropic API', () => {
     ]);
     const r = await say('My sister gave us a high chair, model TB-HC6900.');
     expect(r.mode).toBe('strands');
-    expect(r.model).toBe('Claude claude-opus-5-5');
+    expect(r.model).toBe('claude-opus-5-5');
     expect(r.spoken).toBe("Please don't use that high chair.");
     expect(r.calls.map((c) => c.tool)).toEqual(['check_secondhand_item']);
     expect(r.ui?.result.verdict).toBe('do_not_use');

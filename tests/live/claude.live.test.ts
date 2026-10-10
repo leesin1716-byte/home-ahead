@@ -14,13 +14,14 @@ const turns: { text: string; ms: number; tools: string[]; spoken: string; usage?
 beforeAll(async () => {
   if (!hasKey) return;
   mkdirSync('test-results', { recursive: true });
+  mkdirSync('data/state', { recursive: true });
   app = await startApp(
     {
       ...process.env,
       HOME_AHEAD_DEMO: '1',
       HOME_AHEAD_OFFLINE: '1',
       HOME_AHEAD_AGENT: '',
-      HOME_AHEAD_USAGE_LOG: process.env.HOME_AHEAD_USAGE_LOG ?? 'test-results/claude-usage.jsonl',
+      HOME_AHEAD_USAGE_LOG: process.env.HOME_AHEAD_USAGE_LOG ?? 'data/state/claude-usage.jsonl',
     },
     { port: 0 },
   );
@@ -37,6 +38,7 @@ async function say(text: string): Promise<AgentReply> {
   expect(r.mode, `${text} fell back to the planner`).toBe('strands');
   expect.soft(speechProblems(r.spoken), r.spoken).toEqual([]);
   expect.soft(r.spoken, 'markdown in a spoken reply').not.toMatch(/\*\*|^\s*[-*•] |^#/m);
+  expect(r.spoken, 'notes or emoji in a spoken reply').not.toMatch(/\p{Extended_Pictographic}|\btools?\b|spoken text|\bwords\b/u);
   return r;
 }
 

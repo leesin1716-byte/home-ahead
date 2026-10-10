@@ -93,7 +93,7 @@ function logModelTurn(model: string, u: Usage) {
   li.className = 'turn';
   const n = (x: number) => x.toLocaleString('en-US');
   li.innerHTML = `<div><span class="name"></span><span class="ms"></span></div><div class="src"></div>`;
-  li.querySelector('.name')!.textContent = `model ${model.replace(/^Claude /, '')}`;
+  li.querySelector('.name')!.textContent = `model ${model}`;
   li.querySelector('.ms')!.textContent = `${(u.modelMs / 1000).toFixed(1)} s`;
   li.querySelector('.src')!.textContent = `${u.modelCalls} request${u.modelCalls === 1 ? '' : 's'} · ${n(u.inputTokens + u.cacheReadInputTokens + u.cacheWriteInputTokens)} tokens in (${n(u.cacheReadInputTokens)} cached) · ${n(u.outputTokens)} out`;
   $('calls').appendChild(li);
