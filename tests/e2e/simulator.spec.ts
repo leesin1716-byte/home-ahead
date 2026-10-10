@@ -70,8 +70,8 @@ test('a proactive recall alert names the CPSC recall it comes from', async ({ pa
   await expect(page.locator('#alert-card .src')).toHaveText('U.S. CPSC recall 26794');
 });
 
-test('on-screen text never sits under the app view or the alert card during the demo', async ({ page }) => {
-  await ready(page, '?demo=1&speed=12&tts=0');
+for (const [cut, query] of [['demo', ''], ['live-model cut (inspector open throughout)', '&script=live']]) test(`on-screen text never sits under the app view or the alert card during the ${cut}`, async ({ page }) => {
+  await ready(page, `?demo=1&speed=12&tts=0${query}`);
   // Sample the layout while the demo plays: the spoken line and the reply must stay clear of the right-hand panels.
   await page.evaluate(() => {
     const hits: string[] = [];
@@ -91,4 +91,35 @@ test('on-screen text never sits under the app view or the alert card during the 
   await page.waitForFunction(() => (window as any).__homeAhead.done === true, null, { timeout: 150_000 });
   const hits = await page.evaluate(() => [...new Set((window as any).__overlaps as string[])]);
   expect(hits).toEqual([]);
+});
+
+test('a Strands reply shows the model and its token use without crowding the top bar', async ({ page }) => {
+  await page.request.post('/api/demo/reset');
+  // Stand in for a live model so this runs without a key.
+  await page.route('**/api/agent', (route) =>
+    route.fulfill({
+      json: {
+        spoken: 'I can check both. What model numbers are on their labels?',
+        calls: [],
+        ui: null,
+        mode: 'strands',
+        model: 'Claude claude-opus-5-5',
+        usage: { modelCalls: 2, inputTokens: 6, outputTokens: 275, cacheReadInputTokens: 6628, cacheWriteInputTokens: 345, modelMs: 4361 },
+        protocolVersion: '2025-11-25',
+      },
+    }),
+  );
+  await ready(page, '?tts=0');
+  await page.evaluate(async () => {
+    await (window as any).__homeAhead.ask('My sister is giving us her old high chair and crib.');
+  });
+  await expect(page.locator('#mode-badge')).toHaveText('Strands agent · Claude claude-opus-5-5 · MCP 2025-11-25');
+  await page.locator('#inspector-toggle').click();
+  const turn = page.locator('#calls li.turn');
+  await expect(turn).toContainText('model claude-opus-5-5');
+  await expect(turn).toContainText('2 requests · 6,979 tokens in (6,628 cached) · 275 out');
+  const box = async (sel: string) => (await page.locator(sel).boundingBox())!;
+  const [brand, status, stage] = [await box('.brand'), await box('.status'), await box('#stage')];
+  expect(brand.x + brand.width).toBeLessThan(status.x);
+  expect(status.x + status.width).toBeLessThanOrEqual(stage.x + stage.width);
 });

@@ -16,11 +16,21 @@ interface CallRec {
   result: { isError: boolean; spoken: string; structuredContent: unknown };
   ms: number;
 }
+interface Usage {
+  modelCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheWriteInputTokens: number;
+  modelMs: number;
+}
 interface Reply {
   spoken: string;
   calls: CallRec[];
   ui: UiRef | null;
   mode: string;
+  model?: string;
+  usage?: Usage;
   protocolVersion?: string;
   error?: string;
 }
@@ -40,6 +50,8 @@ const params = new URLSearchParams(location.search);
 const DEMO = params.has('demo');
 const RECORDING = params.has('record');
 const SPEED = Number(params.get('speed') ?? 1);
+// Milliseconds per word when a line has no measured voice-over (the live-model video measures afterwards).
+const PACE = Number(params.get('pace') ?? 390);
 const screen = $('screen');
 const t0 = performance.now();
 
@@ -72,6 +84,18 @@ function logCall(c: CallRec, source: string) {
   li.querySelector('.a')!.textContent = `arguments ${JSON.stringify(c.args)}`;
   const sc = { ...(c.result.structuredContent as Record<string, unknown>) };
   li.querySelector('.r')!.textContent = `structuredContent ${JSON.stringify(sc, null, 1).slice(0, 900)}`;
+  $('calls').appendChild(li);
+}
+
+/** One line per model turn: which model answered, how many requests, tokens and time. */
+function logModelTurn(model: string, u: Usage) {
+  const li = document.createElement('li');
+  li.className = 'turn';
+  const n = (x: number) => x.toLocaleString('en-US');
+  li.innerHTML = `<div><span class="name"></span><span class="ms"></span></div><div class="src"></div>`;
+  li.querySelector('.name')!.textContent = `model ${model.replace(/^Claude /, '')}`;
+  li.querySelector('.ms')!.textContent = `${(u.modelMs / 1000).toFixed(1)} s`;
+  li.querySelector('.src')!.textContent = `${u.modelCalls} request${u.modelCalls === 1 ? '' : 's'} · ${n(u.inputTokens + u.cacheReadInputTokens + u.cacheWriteInputTokens)} tokens in (${n(u.cacheReadInputTokens)} cached) · ${n(u.outputTokens)} out`;
   $('calls').appendChild(li);
 }
 
@@ -136,7 +160,7 @@ let ttsOn = !RECORDING && params.get('tts') !== '0';
 $('tts').addEventListener('change', (e) => (ttsOn = (e.target as HTMLInputElement).checked));
 
 function estimateMs(text: string) {
-  return Math.max(1400, text.split(/\s+/).length * 390);
+  return Math.max(1400, text.split(/\s+/).length * PACE);
 }
 
 /** Speak with the browser voice, or wait as long as the recorded voice-over will take. */
@@ -297,9 +321,11 @@ async function ask(text: string, id = `turn-${events.length}`) {
     const reply = (await res.json()) as Reply;
     screen.dataset.thinking = 'false';
     if (reply.error) throw new Error(reply.error);
-    $('mode-badge').textContent = `${reply.mode === 'strands' ? 'Strands agent' : 'Planner'} · MCP ${reply.protocolVersion ?? ''}`;
+    const agentName = reply.mode === 'strands' ? 'Strands agent' : 'Planner';
+    $('mode-badge').textContent = `${agentName}${reply.model ? ` · ${reply.model}` : ''} · MCP ${reply.protocolVersion ?? ''}`;
     $('mode-badge').classList.add('live');
     for (const c of reply.calls) logCall(c, `called by the ${reply.mode === 'strands' ? 'Strands agent' : 'planner'}`);
+    if (reply.model && reply.usage) logModelTurn(reply.model, reply.usage);
     if (reply.ui) await showApp(reply.ui);
     else {
       await teardownApp();
@@ -386,7 +412,7 @@ async function chapter(text: string, id: string) {
 }
 
 async function playDemo() {
-  const script = (await (await fetch('/demo-script.json')).json()) as { steps: Step[] };
+  const script = (await (await fetch(`/demo-script.json?script=${params.get('script') ?? ''}`)).json()) as { steps: Step[] };
   await fetch('/api/demo/reset', { method: 'POST' });
   await fetch('/api/agent', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reset: true, conversationId: 'sim' }) });
   seenAlerts.clear();

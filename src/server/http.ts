@@ -198,7 +198,11 @@ export async function startServer(ctx: AppContext, opts: ServerOptions): Promise
       if (path === '/' || path === '/index.html') return send(res, 200, readFileSync(join(SIM_DIR, 'index.html'), 'utf8'), 'text/html; charset=utf-8');
       if (path === '/sim.css') return send(res, 200, readFileSync(join(SIM_DIR, 'sim.css'), 'utf8'), 'text/css; charset=utf-8');
       if (path === '/sim.js') return send(res, 200, simJs, 'text/javascript; charset=utf-8');
-      if (path === '/demo-script.json') return send(res, 200, readFileSync(join(import.meta.dirname, '..', '..', 'video', 'script.json'), 'utf8'));
+      if (path === '/demo-script.json') {
+        // ?script=live plays the shorter cut recorded with a live model.
+        const file = url.searchParams.get('script') === 'live' ? 'script-live.json' : 'script.json';
+        return send(res, 200, readFileSync(join(import.meta.dirname, '..', '..', 'video', file), 'utf8'));
+      }
       return send(res, 404, { error: 'not found' });
     } catch (err) {
       if (err instanceof BodyError) {

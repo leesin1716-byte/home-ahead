@@ -98,6 +98,8 @@ body.recording .narration { bottom: 40px; }
 .inspector .ms { float: right; color: var(--muted); }
 .inspector pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; font: 13px/1.4 ui-monospace, "Cascadia Mono", Consolas, monospace; color: #c8d5de; max-height: 160px; overflow: auto; }
 .inspector .src { color: var(--muted); font-size: 13px; }
+.inspector li.turn { background: #ffc15e0d; border-color: #ffc15e33; }
+.inspector li.turn .name { color: var(--warm); }
 
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes slidein { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
