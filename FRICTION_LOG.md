@@ -31,6 +31,7 @@ Problems we actually hit while building Home Ahead, in the order we hit them. Ve
 - **Severity**: Medium for anyone combining Strands with MCP Apps.
 - **Workaround**: `RecordingTransport` in `src/agent/strands.ts` wraps the client transport, pairs each `tools/call` request with its response and keeps the raw result.
 - **Suggestion**: keep `structuredContent` (and `_meta`) on the tool result, or expose a hook for raw MCP results.
+- **Later, with a live model**: the model never sees `structuredContent` either. Our first run of the demo with Claude stopped at "Yes, place the order": the cart token that `confirm_supply_order` needs was only in `structuredContent`, so the model apologized that it could not place the order. Tests with a scripted model had not caught it. Fixed on the server side by also returning the serialized data in a second text block, which the MCP spec recommends for clients that only read `content`.
 
 ## 4. The v2 SDK README names a newer spec than the version it negotiates
 
