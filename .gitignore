@@ -6,3 +6,4 @@ test-results/
 playwright-report/
 *.log
 node_modules
+video/out_live/

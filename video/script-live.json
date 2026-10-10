@@ -1,0 +1,17 @@
+{
+  "title": "Home Ahead demo, live model",
+  "note": "The shorter cut recorded with a live model (npm run video -- --live). Played by the simulator at /?demo=1&script=live. The replies are whatever the model says on the day.",
+  "steps": [
+    {"id": "how", "type": "inspector", "open": true},
+    {"id": "intro", "type": "narrate", "text": "This take runs on a live model: Claude Opus 5.5 in a Strands agent. The panel on the right logs every tool call and model turn."},
+    {"id": "act1", "type": "chapter", "text": "Day 1 · Hand-me-downs"},
+    {"id": "a2", "type": "say", "text": "My sister gave us her old high chair. The label says TB-HC6900.", "speak": "My sister gave us her old high chair. The label says T B, H C, six nine zero zero."},
+    {"id": "act2", "type": "advance", "days": 21, "text": "Three weeks later", "expectAlert": true},
+    {"id": "b1", "type": "say", "text": "She pulled herself up on the couch today!"},
+    {"id": "b2", "type": "say", "text": "Yes please."},
+    {"id": "b3", "type": "say", "text": "Yes, place the order."},
+    {"id": "act3", "type": "advance", "days": 7, "text": "The next Friday", "expectAlert": true},
+    {"id": "c2", "type": "say", "text": "What should I do?"},
+    {"id": "outro", "type": "narrate", "text": "Without a key, or if the model is slow or down, the deterministic planner answers with the same tools."}
+  ]
+}

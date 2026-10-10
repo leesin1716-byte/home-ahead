@@ -88,6 +88,9 @@ body { background: radial-gradient(1200px 700px at 50% 38%, #2a2018 0%, var(--pa
 .narration { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); width: 1300px; text-align: center; font-size: 34px; line-height: 1.35; background: #000c; border-radius: 22px; padding: 22px 34px; z-index: 20; animation: rise .4s ease; }
 body.recording .inputbar { visibility: hidden; }
 body.recording .narration { bottom: 40px; }
+/* A pulsing bar makes the screencast encode frames nonstop while the model thinks, and that left the
+   capture seconds behind the page; recordings show it lit and still. */
+body.recording .screen[data-thinking="true"] .lightbar { animation: none; }
 
 .inspector { position: absolute; top: 96px; right: 40px; bottom: 36px; width: 520px; background: #0b1117f2; border: 1px solid #ffffff1a; border-radius: 24px; padding: 20px 22px; overflow: auto; font-size: 16px; animation: slidein .4s ease; }
 .inspector header { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 20px; }
