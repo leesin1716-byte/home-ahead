@@ -157,6 +157,8 @@ External APIs are never called in tests: the CPSC client is tested with a record
 
 ## Demo video
 
+Watch it on YouTube: https://youtu.be/YZ5wRwIlwLE
+
 `npm run video` records the scripted demo and builds `video/out/home-ahead-demo.mp4` (under 3 minutes), an `.srt` subtitle file and five 3:2 screenshots. It runs the demo twice: first fast, to collect every spoken line, then at real speed while capturing the screen through the Chrome DevTools screencast (JPEG frames with timestamps, encoded with x264 at CRF 18 so small text stays sharp), after generating each line with the open [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) text-to-speech model (Apache-2.0) so the screen waits exactly as long as each voice clip. ffmpeg mixes the clips, plus a synthesized two-tone chime for each proactive alert, at the marked times. It needs `ffmpeg` on the PATH and `npm install` inside `video/` (downloads the model on first run). The video uses no music.
 
 ## Project layout
