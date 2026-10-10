@@ -11,11 +11,24 @@ export interface UiRef {
   isError: boolean;
 }
 
+/** Model requests and tokens behind one Strands turn. */
+export interface TurnUsage {
+  modelCalls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheWriteInputTokens: number;
+  modelMs: number;
+}
+
 export interface AgentReply {
   spoken: string;
   calls: ToolCallRecord[];
   ui: UiRef | null;
   mode: 'planner' | 'strands';
+  /** Strands only: which model answered and what the turn cost in tokens. */
+  model?: string;
+  usage?: TurnUsage;
   protocolVersion?: string;
 }
 

@@ -49,6 +49,13 @@ export class HomeAheadClient {
     };
   }
 
+  /** Alerts the server has raised (newest first), from the home://alerts resource. */
+  async alerts(): Promise<{ id: string; spoken: string }[]> {
+    const res = await this.client.readResource({ uri: 'home://alerts' });
+    const body = JSON.parse((res.contents[0] as { text: string }).text) as { recent?: { id: string; spoken: string }[] };
+    return body.recent ?? [];
+  }
+
   async close(): Promise<void> {
     await this.client.close();
   }

@@ -111,6 +111,8 @@ describe('SDK v2 client', () => {
     expect(sc.verdict).toBe('do_not_use');
     expect(sc.recall.recallNumber).toBe('26290');
     expect((res.content as { text: string }[])[0].text).toBe(sc.spoken);
+    // Clients that read only `content` (Strands) still get the data, serialized, as the spec recommends.
+    expect(JSON.parse((res.content as { text: string }[])[1].text)).toEqual(sc);
   });
 
   it('returns isError with one speakable sentence for bad input the schema allows', async () => {

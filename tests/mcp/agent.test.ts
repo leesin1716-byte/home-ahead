@@ -158,11 +158,14 @@ describe('Strands Agents path (SDK v1 MCP client, scripted model, no API key)', 
   });
 });
 
-/** Records the system prompt of every model call; answers with the tool's text like ScriptedModel. */
+/** Records the system prompt and first user message of every model call; answers like ScriptedModel. */
 class PromptRecordingModel extends ScriptedModel {
   prompts: string[] = [];
+  userTurns: string[] = [];
   override async *stream(messages: Message[], options?: { systemPrompt?: unknown }): AsyncGenerator<ModelStreamEvent> {
-    this.prompts.push(String(options?.systemPrompt ?? ''));
+    this.prompts.push(JSON.stringify(options?.systemPrompt ?? ''));
+    const users = messages.filter((m) => m.role === 'user').map((m) => JSON.stringify(m.content));
+    this.userTurns.push(users.filter((u) => !u.includes('"toolResult"')).at(-1) ?? '');
     yield* super.stream(messages);
   }
 }
@@ -196,16 +199,19 @@ function runner(model: ScriptedModel) {
 }
 
 describe('Strands Agents path: clock and failures', () => {
-  it('refreshes the date in the system prompt on every turn of a conversation', async () => {
+  it('puts the current date in each user turn and never changes the system prompt', async () => {
     app.ctx.resetDemo();
     const model = new PromptRecordingModel();
     const r = runner(model);
     await r.handle('Check this high chair, model TB-HC6900.', 'days');
     app.ctx.clock.advanceDays(21);
     await r.handle('And again.', 'days');
-    expect(model.prompts[0]).toContain('Friday, August 28, 2026');
-    expect(model.prompts.at(-1)).toContain('Friday, September 18, 2026');
-    expect(model.prompts.at(-1)).not.toContain('August 28');
+    expect(model.userTurns[0]).toContain('[Friday, August 28, 2026');
+    expect(model.userTurns.at(-1)).toContain('[Friday, September 18, 2026');
+    expect(model.userTurns.at(-1)).toContain('And again.');
+    // An edited prefix would invalidate Claude's earlier thinking blocks and the prompt cache.
+    expect(new Set(model.prompts).size).toBe(1);
+    expect(model.prompts[0]).not.toMatch(/2026/);
     await r.close();
   });
 

@@ -36,9 +36,15 @@ const ItemInput = z.object({
 const Out = <T extends z.ZodRawShape>(shape: T) => z.looseObject({ spoken: z.string(), ...shape });
 
 function toResult(o: Outcome<object>): CallToolResult {
+  const structuredContent = { spoken: o.spoken, ...o.data };
   return {
-    content: [{ type: 'text', text: o.spoken }],
-    structuredContent: { spoken: o.spoken, ...o.data },
+    // The line to speak first, then the serialized structured data, as the MCP spec recommends for
+    // clients that read only `content` (Strands does; without it a model never sees the cart token).
+    content: [
+      { type: 'text', text: o.spoken },
+      { type: 'text', text: JSON.stringify(structuredContent) },
+    ],
+    structuredContent,
     ...(o.isError ? { isError: true } : {}),
   };
 }
