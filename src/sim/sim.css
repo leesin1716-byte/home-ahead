@@ -47,7 +47,7 @@ body { background: radial-gradient(1200px 700px at 50% 38%, #2a2018 0%, var(--pa
 .amb.warn { border-color: #ffc15e66; }
 .amb.warn .v { color: var(--warm); }
 
-.user-bubble { position: absolute; top: 40px; left: 48px; max-width: 560px; font-size: 30px; line-height: 1.3; color: #dfe8ee; display: flex; gap: 14px; align-items: flex-start; animation: rise .35s ease; }
+.user-bubble { position: absolute; top: 40px; left: 48px; max-width: 512px; font-size: 30px; line-height: 1.3; color: #dfe8ee; display: flex; gap: 14px; align-items: flex-start; animation: rise .35s ease; }
 .user-bubble::before { content: "“"; color: var(--sky); font-size: 54px; line-height: .8; }
 .mic-dot { display: none; }
 .reply { position: absolute; z-index: 3; left: 48px; bottom: 56px; width: 520px; font-size: 32px; line-height: 1.32; font-weight: 600; animation: rise .35s ease; }

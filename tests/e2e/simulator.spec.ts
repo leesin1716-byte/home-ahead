@@ -69,3 +69,26 @@ test('a proactive recall alert names the CPSC recall it comes from', async ({ pa
   await expect(page.locator('#alert-card')).toBeVisible();
   await expect(page.locator('#alert-card .src')).toHaveText('U.S. CPSC recall 26794');
 });
+
+test('on-screen text never sits under the app view or the alert card during the demo', async ({ page }) => {
+  await ready(page, '?demo=1&speed=12&tts=0');
+  // Sample the layout while the demo plays: the spoken line and the reply must stay clear of the right-hand panels.
+  await page.evaluate(() => {
+    const hits: string[] = [];
+    (window as any).__overlaps = hits;
+    const shown = (el: HTMLElement | null) => !!el && !el.hidden && getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0;
+    const meet = (a: DOMRect, b: DOMRect) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+    setInterval(() => {
+      const screen = document.getElementById('screen')!;
+      if (screen.dataset.ui === 'fullscreen') return;
+      const texts = ['user-bubble', 'reply'].map((id) => document.getElementById(id)).filter(shown) as HTMLElement[];
+      const panels = ['app-slot', 'alert-card'].map((id) => document.getElementById(id)).filter(shown) as HTMLElement[];
+      for (const t of texts)
+        for (const p of panels)
+          if (meet(t.getBoundingClientRect(), p.getBoundingClientRect())) hits.push(`${t.id} under ${p.id}: ${t.innerText.slice(0, 40)}`);
+    }, 50);
+  });
+  await page.waitForFunction(() => (window as any).__homeAhead.done === true, null, { timeout: 150_000 });
+  const hits = await page.evaluate(() => [...new Set((window as any).__overlaps as string[])]);
+  expect(hits).toEqual([]);
+});
