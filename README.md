@@ -120,7 +120,7 @@ How the model path behaves (`src/agent/strands.ts`, `src/agent/api.ts`):
 - **Request settings** for Claude Opus 5.5 through the Anthropic API: adaptive thinking with `low` effort (a voice turn should come back quickly; `HOME_AHEAD_EFFORT` changes it), `fallbacks: "default"` so a request declined by a safety classifier is retried on the model Anthropic recommends, and prompt caching for the tools, the system prompt and the conversation.
 - **Append-only conversations**: the current date and any alert the screen announced since the last turn ride in the user's turn; the system prompt never changes and earlier turns are never trimmed or edited. That keeps the prompt cache warm and keeps Claude's earlier thinking blocks valid when they are sent back.
 - **Falling back to the planner**: if the model declines, fails, or has not called a tool within 20 seconds, the planner answers that turn (and a run that was given up on can no longer call tools). If the model fails after a tool already ran, Home Ahead reports what the tool did instead of running the turn again. If the API refuses the key itself (invalid key, no credit or billing, no access, unknown model), the planner answers every turn from then on, without retrying.
-- **Cost**: `HOME_AHEAD_USAGE_LOG=<file>` appends the token usage of every model request as one JSON line. In our runs of the demo conversation, a turn took two requests and about 3 to 5 seconds.
+- **Cost**: `HOME_AHEAD_USAGE_LOG=<file>` appends the token usage of every model request as one JSON line. In the recorded live take (`video/out_live`), each turn took two requests and 3 to 12 seconds, most about 6.
 
 ### Connect another MCP client
 
